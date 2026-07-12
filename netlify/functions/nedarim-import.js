@@ -214,6 +214,13 @@ function isInactiveKeva(tx) {
   return /מבוטל|בוטל|cancel|inactive|לא\s*פעיל|הופסק|false/.test(raw);
 }
 
+function extractFundraiserName(comment) {
+  const text = String(comment || "");
+  const parts = text.split("|");
+  if (parts.length < 2) return "";
+  return parts[parts.length - 1].trim();
+}
+
 function mapHistoryToDashboardDonor(tx, index, mosadId) {
   const key = transactionKey(tx, index, mosadId);
   const amount = getAmount(tx);
@@ -224,6 +231,7 @@ function mapHistoryToDashboardDonor(tx, index, mosadId) {
   const transactionTime = parseDate(tx.TransactionTime || tx.TransactionDate || tx.Date || tx.CreatedAt || tx.Time);
   const category = tx.Groupe || tx.Group || tx.Category || "נציבי דעת אהרן";
   const comments = tx.Comments || tx.Comment || tx.Notes || "";
+  const donorName = extractFundraiserName(comments);
   const clientName = tx.ClientName || tx.Name || [tx.FirstName, tx.LastName].filter(Boolean).join(" ") || "תורם מנדרים פלוס";
   const frequency = detectDonationFrequency(tx, installments);
   const monthlyAmount = cleanNumber(tx.NextTashloum || tx.NextTashlum) || (installments > 1 ? Math.round((amount / installments) * 100) / 100 : amount);
@@ -231,6 +239,7 @@ function mapHistoryToDashboardDonor(tx, index, mosadId) {
   return {
     id: `nedarim-${mosadId}-tx-${key}`,
     fullName: clientName,
+    donorName,
     phone: tx.Phone || "",
     email: tx.Mail || tx.Email || "",
     address: tx.Adresse || tx.Address || tx.Street || "",
@@ -270,6 +279,7 @@ function mapHistoryToDashboardDonor(tx, index, mosadId) {
       tx.Confirmation ? `אישור: ${tx.Confirmation}` : "",
       tx.MasofName ? `עמדה: ${tx.MasofName}` : "",
       frequency.label ? `סוג תרומה: ${frequency.label}` : "",
+      donorName ? `שם המתרים: ${donorName}` : "",
       comments ? `הערות נדרים: ${comments}` : ""
     ].filter(Boolean).join(" · "),
     createdAt: transactionTime || new Date().toISOString(),
@@ -285,6 +295,7 @@ function mapKevaToDashboardDonor(tx, index, mosadId) {
   const installments = Math.max(1, Number(String(tx.Tashloumim || tx.Tashlumim || tx.Payments || tx.YitratTashloumim || "1").replace(/[^0-9]/g, "")) || 1);
   const category = tx.Groupe || tx.Group || tx.Category || "נציבי דעת אהרן";
   const comments = tx.Comments || tx.Comment || tx.Notes || tx.Avour || "";
+  const donorName = extractFundraiserName(comments);
   const clientName = tx.ClientName || tx.Name || [tx.FirstName, tx.LastName].filter(Boolean).join(" ") || "תורם הוראת קבע מנדרים פלוס";
   const startDate = parseDate(tx.StartFrom || tx.StartDate || tx.CreatedAt || tx.Date || tx.OpenDate || tx.TransactionTime) || new Date().toISOString();
   const nextChargeDate = parseDate(tx.NextDate || tx.NextCharge || tx.ChargeDate || tx.HiyuvHaba || tx.HiyuvDate || tx.DateHiyuv, { allowFuture: true });
@@ -293,6 +304,7 @@ function mapKevaToDashboardDonor(tx, index, mosadId) {
   return {
     id: `nedarim-${mosadId}-keva-${key}`,
     fullName: clientName,
+    donorName,
     phone: tx.Phone || "",
     email: tx.Mail || tx.Email || "",
     address: tx.Adresse || tx.Address || tx.Street || "",
@@ -333,6 +345,7 @@ function mapKevaToDashboardDonor(tx, index, mosadId) {
       dayOfCharge ? `יום חיוב: ${dayOfCharge}` : "",
       nextChargeDate ? `חיוב הבא: ${nextChargeDate.slice(0, 10)}` : "",
       tx.LastNum ? `כרטיס: *${tx.LastNum}` : "",
+      donorName ? `שם המתרים: ${donorName}` : "",
       comments ? `הערות נדרים: ${comments}` : ""
     ].filter(Boolean).join(" · "),
     createdAt: startDate,

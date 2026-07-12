@@ -153,6 +153,7 @@ async function fanOutImmediateAlert(payload) {
   const body = {
     type: "nedarim.donation.received",
     title: "New Nedarim donation received",
+    donorFullName: payload.fullName,
     donorName: payload.fullName,
     fundraiserName: payload.donorName,
     amount: payload.amount,

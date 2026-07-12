@@ -3335,7 +3335,7 @@ function json(obj) {
   function normalizeImportedNedarimForTotals(){
     if(typeof donors === 'undefined' || !Array.isArray(donors)) return;
     let changed = false;
-    window.donors.forEach(function(d){
+    donors.forEach(function(d){
       if(!d) return;
       const isNedarim = d.importedFromNedarim || d.source === 'nedarim_external' || /נדרים|Nedarim/i.test(String(d.paymentProcessor || d.notes || ''));
       if(!isNedarim) return;
