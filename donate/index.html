@@ -3687,12 +3687,15 @@ html[dir="ltr"] .btn-primary.grow2 svg { transform: scaleX(-1); }
   const STORAGE_KEY = 'nda_donation_notification';
   const CHANNEL_NAME = 'nda_donation_notification_channel';
   const POLL_SEEN_KEY = 'nda_donation_notification_seen_ids';
+  const POLL_WATERMARK_KEY = 'nda_donation_notification_last_seen_ts';
   const POLL_INTERVAL_MS = 60 * 1000;
+  const INITIAL_RECENT_WINDOW_MS = 2 * 60 * 1000;
   let notificationRoot = null;
   let channel = null;
   let lastShownId = '';
   let donorPollTimer = 0;
   let seenDonorIds = new Set();
+  let lastSeenTimestamp = 0;
 
   function getLanguage() {
     const lang = (window.currentLanguage || localStorage.getItem('dedication_language') || document.documentElement.lang || 'he').toString().toLowerCase();
@@ -3731,12 +3734,36 @@ html[dir="ltr"] .btn-primary.grow2 svg { transform: scaleX(-1); }
     } catch (e) {}
   }
 
+  function loadLastSeenTimestamp() {
+    try {
+      const raw = Number(sessionStorage.getItem(POLL_WATERMARK_KEY) || 0);
+      return Number.isFinite(raw) ? raw : 0;
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  function saveLastSeenTimestamp() {
+    try {
+      sessionStorage.setItem(POLL_WATERMARK_KEY, String(lastSeenTimestamp || 0));
+    } catch (e) {}
+  }
+
+  function donorEventTimestamp(donor) {
+    const raw = donor && (donor.importedAt || donor.createdAt || donor.paymentDate || donor.updatedAt || donor.date);
+    const ts = raw ? new Date(raw).getTime() : 0;
+    return Number.isFinite(ts) ? ts : 0;
+  }
+
   function rememberSeenDonors(donors) {
     (donors || []).forEach(function (donor) {
       const id = normalizeDonorId(donor);
       if (id) seenDonorIds.add(id);
+      const ts = donorEventTimestamp(donor);
+      if (ts > lastSeenTimestamp) lastSeenTimestamp = ts;
     });
     saveSeenDonorIds();
+    saveLastSeenTimestamp();
   }
 
   function formatAmount(amount, currency) {
@@ -3822,13 +3849,32 @@ html[dir="ltr"] .btn-primary.grow2 svg { transform: scaleX(-1); }
     if (!donors.length) return;
 
     if (showExistingAsNew) {
+      const threshold = Math.max(lastSeenTimestamp || 0, Date.now() - INITIAL_RECENT_WINDOW_MS);
+      const recentFresh = donors.filter(function (donor) {
+        const id = normalizeDonorId(donor);
+        const ts = donorEventTimestamp(donor);
+        return id && !seenDonorIds.has(id) && ts >= threshold;
+      });
+
+      recentFresh
+        .slice()
+        .sort(function (a, b) {
+          return donorEventTimestamp(a) - donorEventTimestamp(b);
+        })
+        .forEach(function (donor) {
+          announceDonationNotification(donor, {
+            paymentMethod: donor && donor.paymentType === 'HK' ? 'bank' : 'card'
+          });
+        });
+
       rememberSeenDonors(donors);
       return;
     }
 
     const fresh = donors.filter(function (donor) {
       const id = normalizeDonorId(donor);
-      return id && !seenDonorIds.has(id);
+      const ts = donorEventTimestamp(donor);
+      return id && (!seenDonorIds.has(id) || ts > lastSeenTimestamp);
     });
 
     if (!fresh.length) return;
@@ -3853,6 +3899,7 @@ html[dir="ltr"] .btn-primary.grow2 svg { transform: scaleX(-1); }
   function startDonationPolling() {
     if (donorPollTimer || !window.CONFIG || !CONFIG.APPS_SCRIPT_URL) return;
     seenDonorIds = loadSeenDonorIds();
+    lastSeenTimestamp = loadLastSeenTimestamp();
     pollNewDonors(true);
     donorPollTimer = window.setInterval(function () {
       pollNewDonors(false);
