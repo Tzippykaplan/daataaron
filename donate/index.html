@@ -687,6 +687,38 @@ html[dir="rtl"] .hero * {
   z-index: 2;
   transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
 }
+.header-view-btn {
+  position: absolute;
+  top: 50%;
+  right: 174px;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 9px 18px;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--primary) !important;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+  z-index: 2;
+  transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
+}
+.header-view-btn:hover {
+  transform: translateY(-50%) translateY(-1px);
+  box-shadow: var(--shadow);
+  filter: brightness(1.02);
+}
+.header-view-btn:focus-visible {
+  outline: 3px solid rgba(20,184,166,.35);
+  outline-offset: 3px;
+}
 .header-donation-btn:hover {
   transform: translateY(-50%) translateY(-1px);
   box-shadow: var(--shadow-lg);
@@ -697,7 +729,9 @@ html[dir="rtl"] .hero * {
   outline-offset: 3px;
 }
 html[dir="rtl"] .header-donation-btn,
-html[dir="ltr"] .header-donation-btn { text-align: center !important; }
+html[dir="ltr"] .header-donation-btn,
+html[dir="rtl"] .header-view-btn,
+html[dir="ltr"] .header-view-btn { text-align: center !important; }
 html[dir="ltr"] .btn-primary.grow2 svg { transform: scaleX(-1); }
 @media (max-width: 640px) {
   .header-inner {
@@ -723,7 +757,20 @@ html[dir="ltr"] .btn-primary.grow2 svg { transform: scaleX(-1); }
     min-height: 36px;
     white-space: normal;
   }
+  .header-view-btn {
+    position: static;
+    transform: none;
+    margin-inline-start: auto;
+    flex: 0 0 auto;
+    max-width: 148px;
+    font-size: 11.5px;
+    line-height: 1.15;
+    padding: 7px 10px;
+    min-height: 36px;
+    white-space: normal;
+  }
   .header-donation-btn:hover { transform: none; }
+  .header-view-btn:hover { transform: none; }
 }
 
 
@@ -821,7 +868,8 @@ html[dir="ltr"] .btn-primary.grow2 svg { transform: scaleX(-1); }
       <h1>נציבי ישיבת דעת אהרן</h1>
       <p>תרומות והנצחות</p>
     </div>
-    <a class="header-donation-btn" href="/donate/alumni.html">עמודי הישיבה</a>
+    <a class="header-view-btn" id="viewDonationsLink" href="/donate/donations.html?lang=he">הצג תרומות</a>
+    <a class="header-donation-btn" id="alumniLink" href="/donate/alumni.html?lang=he">עמודי הישיבה</a>
   </div>
 </header>
 
@@ -1549,7 +1597,7 @@ html[dir="ltr"] .btn-primary.grow2 svg { transform: scaleX(-1); }
     'בחירת סוג ההנצחה':'Choose Dedication Type', 'בחרו את מסלול ההנצחה המתאים לכם':'Choose the dedication option that is right for you',
     'מסלול קלאסי':'Classic Option', 'נציב יום רגיל':'Standard Day Dedication', 'הנצחת יום לימוד תורה שלם':'Dedication of a full day of Torah learning', 'אזכרת שם הנפטר ביום ההנצחה':'Mention of the deceased on the dedication day', 'תעודת הנצחה מהודרת':'Elegant dedication certificate',
     'מסלול זהב':'Gold Option', 'נציב יום זהב':'Gold Day Dedication', 'כל הטבות מסלול נציב יום רגיל':'All benefits of the standard day dedication', 'הנצחה קבועה בלוח הזיכרון':'Permanent dedication on the memorial board', 'אזכרה מיוחדת בעצרת השנתית':'Special mention at the annual gathering', 'מעמד מכובד בקהילת המנציחים':'Honored status among the dedication community',
-    'המשך':'Continue', 'חזרה':'Back', 'חזרה לתפריט הראשי':'Back to Main Menu', 'עמודי הישיבה':'Yeshiva Pillars', 'מסלולי הוראת קבע לבוגרי וידידי הישיבה':'Standing-order tracks for alumni and friends of the Yeshiva',
+    'המשך':'Continue', 'חזרה':'Back', 'חזרה לתפריט הראשי':'Back to Main Menu', 'עמודי הישיבה':'Yeshiva Pillars', 'הצג תרומות':'View Donations', 'מסלולי הוראת קבע לבוגרי וידידי הישיבה':'Standing-order tracks for alumni and friends of the Yeshiva',
     'פרטי התורם':'Donor Details', 'נשמח להכיר — הפרטים ישמשו ליצירת קשר ולמשלוח אישור':'Please enter your details for contact and confirmation purposes',
     'שם מלא':'Full Name', 'שם המתרים':'Donor Name', 'טלפון':'Phone', 'דוא״ל':'Email', 'כתובת':'Address',
     'פרטי ההנצחה':'Dedication Details', 'בחרו את סוג ההנצחה ומלאו את הפרטים המתאימים':'Choose the dedication purpose and fill in the relevant details', 'למי מוקדשת ההנצחה ומתי יום הזיכרון':'Who the dedication is for and when the yahrzeit is observed',
@@ -1617,6 +1665,10 @@ html[dir="ltr"] .btn-primary.grow2 svg { transform: scaleX(-1); }
   }
   function updateButtons(){
     document.querySelectorAll('.lang-btn').forEach(btn=>btn.classList.toggle('active', btn.dataset.lang === currentLanguage));
+    const alumni = document.getElementById('alumniLink');
+    const viewer = document.getElementById('viewDonationsLink');
+    if(alumni) alumni.setAttribute('href', '/donate/alumni.html?lang=' + currentLanguage);
+    if(viewer) viewer.setAttribute('href', '/donate/donations.html?lang=' + currentLanguage);
     const submit = document.getElementById('submitBtn');
     if(submit && !submit.disabled){
       const text = currentLanguage === 'he' ? 'השלמת ההזמנה ' : 'Complete Order ';

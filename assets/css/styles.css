@@ -2616,7 +2616,7 @@ body.page-donate-alumni .alumni-video {
   display: block;
   width: 100%;
   aspect-ratio: 16 / 9;
-  max-height: ;
+  /* max-height: ; */
   object-fit: cover;
   background: #000;
 }
@@ -4456,6 +4456,71 @@ body.page-donate-main .nedarim-live-title {
   font-weight: 800;
   color: var(--primary);
   font-size: 18px;
+}
+
+/* ===== admin/donations-viewer.js ===== */
+
+body.page-admin .donations-table-wrap {
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: auto;
+  background: var(--surface);
+}
+
+body.page-admin .donations-table {
+  width: 100%;
+  min-width: 980px;
+  border-collapse: collapse;
+}
+
+body.page-admin .donations-table th,
+body.page-admin .donations-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  text-align: right;
+  vertical-align: middle;
+}
+
+html[dir="ltr"] body.page-admin .donations-table th,
+html[dir="ltr"] body.page-admin .donations-table td {
+  text-align: left;
+}
+
+body.page-admin .donations-table th {
+  font-weight: 700;
+  color: var(--text);
+  background: var(--surface-2);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+body.page-admin .donations-table tbody tr:hover {
+  background: #fbfcff;
+}
+
+body.page-admin .donations-notes-cell {
+  max-width: 260px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+body.page-admin .donations-pagination {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+@media (max-width: 680px) {
+  body.page-admin .donations-pagination {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
 
 body.page-donate-main .nedarim-live-sub {
