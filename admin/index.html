@@ -3426,6 +3426,7 @@ function json(obj) {
 (function(){
   function cleanNum(v){ const n = Number(String(v || 0).replace(/[^0-9.\-]/g, '')); return isNaN(n) ? 0 : n; }
   function parseDonationDate(d){
+    
     const value = d && (d.paymentDate || d.createdAt || d.importedAt || d.TransactionTime || d.date);
     const looksNedarim = !!(d && /nedarim|נדרים/i.test([d.source, d.paymentProcessor, d.processor, d.notes, d.category].filter(Boolean).join(' ')));
     function clampNedarimFutureDate(parsed){
