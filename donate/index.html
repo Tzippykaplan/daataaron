@@ -3879,7 +3879,10 @@ html[dir="ltr"] .btn-primary.grow2 svg { transform: scaleX(-1); }
   }
 
   async function fetchRemoteDonors() {
-    if (!window.CONFIG || !CONFIG.APPS_SCRIPT_URL) return [];
+    if (typeof CONFIG === 'undefined' || !CONFIG.APPS_SCRIPT_URL) {
+      updatePollStatus({ state: 'error', statusText: 'Apps Script URL is missing', lastCheck: Date.now(), donorsCount: 0, freshCount: 0, lastId: '' });
+      return [];
+    }
     try {
       const response = await fetch(CONFIG.APPS_SCRIPT_URL + '?action=get&t=' + Date.now(), {
         method: 'GET',
@@ -3957,9 +3960,14 @@ html[dir="ltr"] .btn-primary.grow2 svg { transform: scaleX(-1); }
   }
 
   function startDonationPolling() {
-    if (donorPollTimer || !window.CONFIG || !CONFIG.APPS_SCRIPT_URL) return;
+    if (donorPollTimer) return;
+    if (typeof CONFIG === 'undefined' || !CONFIG.APPS_SCRIPT_URL) {
+      updatePollStatus({ state: 'error', statusText: 'Polling not started: Apps Script URL is missing', lastCheck: Date.now(), donorsCount: 0, freshCount: 0, lastId: '' });
+      return;
+    }
     seenDonorIds = loadSeenDonorIds();
     lastSeenTimestamp = loadLastSeenTimestamp();
+    updatePollStatus({ state: 'ok', statusText: 'Polling started', lastCheck: Date.now(), donorsCount: 0, freshCount: 0, lastId: '' });
     pollNewDonors(true);
     donorPollTimer = window.setInterval(function () {
       pollNewDonors(false);
