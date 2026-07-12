@@ -2278,10 +2278,7 @@ function json(obj) {
       if (pull.ok) {
         const data = await pull.json();
         if (data && Array.isArray(data.donors)) {
-          const remoteIds = new Set(data.donors.map(x => x.id));
-          const merged = [...data.donors];
-          donors.forEach(d => { if (!remoteIds.has(d.id)) merged.push(d); });
-          donors = merged;
+          donors = mergeDonorsById(donors, data.donors);
         }
       }
 
@@ -3172,7 +3169,11 @@ function json(obj) {
     (incoming || []).forEach(d => {
       if(!d || !d.id) return;
       const old = map.get(String(d.id));
-      map.set(String(d.id), Object.assign({}, old || {}, d, { importedFromNedarim: true }));
+      const merged = Object.assign({}, old || {}, d, { importedFromNedarim: true });
+      if ((!merged.donorName || !String(merged.donorName).trim()) && old && old.donorName) merged.donorName = old.donorName;
+      if ((!merged.honoreeName || !String(merged.honoreeName).trim()) && old && old.honoreeName) merged.honoreeName = old.honoreeName;
+      if ((!merged.notes || !String(merged.notes).trim()) && old && old.notes) merged.notes = old.notes;
+      map.set(String(d.id), merged);
     });
     return Array.from(map.values()).sort((a,b) => new Date(b.paymentDate || b.createdAt || 0) - new Date(a.paymentDate || a.createdAt || 0));
   }
@@ -3333,9 +3334,10 @@ function json(obj) {
 (function(){
   function cleanNum(v){ const n = Number(String(v || 0).replace(/[^0-9.\-]/g, '')); return isNaN(n) ? 0 : n; }
   function normalizeImportedNedarimForTotals(){
-    if(typeof donors === 'undefined' || !Array.isArray(donors)) return;
+    const donorList = Array.isArray(donors) ? donors : [];
+    if(!donorList.length) return;
     let changed = false;
-    donors.forEach(function(d){
+    donorList.forEach(function(d){
       if(!d) return;
       const isNedarim = d.importedFromNedarim || d.source === 'nedarim_external' || /נדרים|Nedarim/i.test(String(d.paymentProcessor || d.notes || ''));
       if(!isNedarim) return;
@@ -3700,9 +3702,10 @@ function json(obj) {
     return d.importedFromNedarim || d.source === 'nedarim_external' || /nedarim|נדרים/i.test(txt);
   }
   function normalizeNedarimNoDedicationDate(){
-    if(typeof donors === 'undefined' || !Array.isArray(donors)) return;
+    const donorList = Array.isArray(donors) ? donors : [];
+    if(!donorList.length) return;
     let changed = false;
-    donors.forEach(function(d){
+    donorList.forEach(function(d){
       if(!isNedarimDonation(d)) return;
       if(d.hebDay){ d.hebDay = ''; changed = true; }
       if(d.hebMonth){ d.hebMonth = ''; changed = true; }
