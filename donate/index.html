@@ -3708,6 +3708,7 @@ html[dir="ltr"] .btn-primary.grow2 svg { transform: scaleX(-1); }
 (function () {
   const STORAGE_KEY = 'nda_donation_notification';
   const CHANNEL_NAME = 'nda_donation_notification_channel';
+  const SHOW_POLL_STATUS = false;
   const POLL_SEEN_KEY = 'nda_donation_notification_seen_ids';
   const POLL_WATERMARK_KEY = 'nda_donation_notification_last_seen_ts';
   const POLL_INTERVAL_MS = 60 * 1000;
@@ -3736,6 +3737,7 @@ html[dir="ltr"] .btn-primary.grow2 svg { transform: scaleX(-1); }
   }
 
   function createPollStatusNode() {
+    if (!SHOW_POLL_STATUS) return null;
     if (pollStatusNode && pollStatusNode.isConnected) return pollStatusNode;
     pollStatusNode = document.createElement('div');
     pollStatusNode.className = 'donation-poll-status';
@@ -3745,7 +3747,9 @@ html[dir="ltr"] .btn-primary.grow2 svg { transform: scaleX(-1); }
   }
 
   function updatePollStatus(details) {
+    if (!SHOW_POLL_STATUS) return;
     const node = createPollStatusNode();
+    if (!node) return;
     const state = details && details.state ? details.state : 'idle';
     node.classList.toggle('is-error', state === 'error');
     node.classList.toggle('is-ok', state === 'ok');
@@ -4000,7 +4004,7 @@ html[dir="ltr"] .btn-primary.grow2 svg { transform: scaleX(-1); }
 
   document.addEventListener('DOMContentLoaded', function () {
     createNotificationRoot();
-    createPollStatusNode();
+    if (SHOW_POLL_STATUS) createPollStatusNode();
     startDonationPolling();
     try {
       if ('BroadcastChannel' in window) {
