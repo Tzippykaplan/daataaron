@@ -594,6 +594,50 @@ html[dir="rtl"] .hero * {
     border: 1px solid #fecaca;
   }
 
+  .donation-notification-root {
+    position: fixed;
+    bottom: 20px;
+    inset-inline-end: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: min(320px, calc(100vw - 24px));
+    z-index: 1200;
+    pointer-events: none;
+  }
+  .donation-notification {
+    pointer-events: auto;
+    border-radius: 16px;
+    padding: 12px 14px;
+    box-shadow: var(--shadow-lg);
+    border: 1px solid rgba(15, 27, 45, 0.08);
+    background: rgba(255,255,255,0.97);
+    color: var(--text);
+    backdrop-filter: blur(8px);
+    transform: translateY(8px);
+    opacity: 0;
+    animation: donation-pop-in .28s ease forwards;
+  }
+  .donation-notification.success {
+    border-color: rgba(22,163,74,0.18);
+    background: linear-gradient(135deg, rgba(236,253,245,0.98), rgba(255,255,255,0.98));
+  }
+  .donation-notification .notification-title {
+    font-size: 13px;
+    font-weight: 800;
+    margin-bottom: 4px;
+  }
+  .donation-notification .notification-message {
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--text-2);
+  }
+  html[dir="ltr"] .donation-notification-root { right: 20px; left: auto; }
+  html[dir="rtl"] .donation-notification-root { left: 20px; right: auto; }
+  @keyframes donation-pop-in {
+    from { opacity: 0; transform: translateY(8px) scale(.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
 
 /* ===== Header donation button ===== */
 .header-inner { position: relative; min-height: 70px; padding-right: 270px; }
@@ -720,7 +764,7 @@ html[dir="ltr"] .btn-primary.grow2 svg { transform: scaleX(-1); }
 }
 
 .subtitle2 {
- color: #efbf5f
+ color: #efbf5f;
   line-height: 1.3;
   text-align: center !important;
 }
@@ -3566,6 +3610,133 @@ html[dir="ltr"] .btn-primary.grow2 svg { transform: scaleX(-1); }
   if (window.MutationObserver) {
     new MutationObserver(purgeLitePlan).observe(document.documentElement, { childList: true, subtree: true });
   }
+})();
+</script>
+
+<script>
+(function () {
+  const STORAGE_KEY = 'nda_donation_notification';
+  const CHANNEL_NAME = 'nda_donation_notification_channel';
+  let notificationRoot = null;
+  let channel = null;
+  let lastShownId = '';
+
+  function getLanguage() {
+    const lang = (window.currentLanguage || localStorage.getItem('dedication_language') || document.documentElement.lang || 'he').toString().toLowerCase();
+    return lang.startsWith('en') ? 'en' : 'he';
+  }
+
+  function createNotificationRoot() {
+    if (notificationRoot && notificationRoot.isConnected) return notificationRoot;
+    notificationRoot = document.createElement('div');
+    notificationRoot.className = 'donation-notification-root';
+    notificationRoot.setAttribute('aria-live', 'polite');
+    notificationRoot.setAttribute('aria-atomic', 'true');
+    document.body.appendChild(notificationRoot);
+    return notificationRoot;
+  }
+
+  function formatAmount(amount, currency) {
+    const value = Number(amount || 0);
+    if (!Number.isFinite(value) || value <= 0) return '';
+    const normalized = String(currency || '').toUpperCase();
+    if (normalized === 'ILS') return '₪' + value.toLocaleString('he-IL');
+    return '$' + value.toLocaleString('en-US');
+  }
+
+  function buildPayload(donor, options) {
+    const lang = getLanguage();
+    const donorName = donor?.fullName || [donor?.firstName, donor?.lastName].filter(Boolean).join(' ') || (lang === 'he' ? 'תורם' : 'Donor');
+    const amount = formatAmount(donor?.amount || donor?.chargedAmount || donor?.paymentAmount || donor?.totalAmount, donor?.currency || (lang === 'he' ? 'ILS' : 'USD'));
+    const method = options?.paymentMethod || donor?.paymentMethod || (window.state && window.state.payment === 'card' ? 'card' : 'bank');
+    const methodText = lang === 'he'
+      ? { card: 'כרטיס אשראי', bank: 'העברה בנקאית' }[method] || 'תשלום'
+      : { card: 'Credit Card', bank: 'Bank Transfer' }[method] || 'Payment';
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    return {
+      id,
+      title: lang === 'he' ? 'תרומה חדשה' : 'New Donation',
+      message: lang === 'he'
+        ? `${donorName}${amount ? ` • ${amount}` : ''}${methodText ? ` • ${methodText}` : ''}`
+        : `${donorName}${amount ? ` • ${amount}` : ''}${methodText ? ` • ${methodText}` : ''}`,
+      donorName,
+      amount,
+      methodText,
+      createdAt: Date.now()
+    };
+  }
+
+  function showDonationNotification(payload) {
+    if (!payload || payload.id === lastShownId) return;
+    lastShownId = payload.id;
+    const root = createNotificationRoot();
+    const notice = document.createElement('div');
+    notice.className = 'donation-notification success';
+    notice.innerHTML = '<div class="notification-title">' + (payload.title || '') + '</div><div class="notification-message">' + (payload.message || '') + '</div>';
+    root.appendChild(notice);
+    window.setTimeout(function () {
+      notice.style.opacity = '0';
+      notice.style.transform = 'translateY(6px)';
+      window.setTimeout(function () { notice.remove(); }, 220);
+    }, 4200);
+  }
+
+  function announceDonationNotification(donor, options) {
+    const payload = buildPayload(donor, options);
+    showDonationNotification(payload);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    } catch (e) {}
+    if (channel) {
+      channel.postMessage(payload);
+    }
+    return payload;
+  }
+
+  function handleIncomingNotification(eventPayload) {
+    if (!eventPayload || typeof eventPayload !== 'object') return;
+    if (eventPayload.id === lastShownId) return;
+    showDonationNotification(eventPayload);
+  }
+
+  const previousFinishOrder = window.finishOrder;
+  window.finishOrder = function (ref, paymentResult) {
+    const result = typeof previousFinishOrder === 'function' ? previousFinishOrder(ref, paymentResult) : undefined;
+    try {
+      const donor = typeof window.buildDonor === 'function' ? window.buildDonor(ref) : null;
+      if (donor) {
+        announceDonationNotification(donor, {
+          ref: ref,
+          paymentResult: paymentResult,
+          paymentMethod: window.state && window.state.payment ? window.state.payment : 'bank'
+        });
+      }
+    } catch (error) {
+      console.warn('Donation popup notification could not be shown:', error);
+    }
+    return result;
+  };
+
+  document.addEventListener('DOMContentLoaded', function () {
+    createNotificationRoot();
+    try {
+      if ('BroadcastChannel' in window) {
+        channel = new BroadcastChannel(CHANNEL_NAME);
+        channel.onmessage = function (event) {
+          handleIncomingNotification(event.data);
+        };
+      }
+    } catch (e) {}
+    window.addEventListener('storage', function (event) {
+      if (event.key !== STORAGE_KEY || !event.newValue) return;
+      try {
+        handleIncomingNotification(JSON.parse(event.newValue));
+      } catch (e) {}
+    });
+  });
+
+  window.announceDonationNotification = announceDonationNotification;
+  window.showDonationNotification = showDonationNotification;
 })();
 </script>
 
