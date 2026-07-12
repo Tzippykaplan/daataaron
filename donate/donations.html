@@ -487,6 +487,7 @@
               <th id="thDonor">שם תורם</th>
               <th id="thAmount">סכום תרומה</th>
               <th id="thFundraiser">שם מתרים</th>
+              <th id="thNedarimNote">הערת נדרים</th>
             </tr>
           </thead>
           <tbody id="tbody"></tbody>
@@ -534,7 +535,7 @@
         noData: 'אין תרומות להצגה',
         prev: 'הקודם', next: 'הבא',
         page: 'עמוד', of: 'מתוך',
-        thDonor: 'שם תורם', thAmount: 'סכום תרומה', thFundraiser: 'שם מתרים'
+        thDonor: 'שם תורם', thAmount: 'סכום תרומה', thFundraiser: 'שם מתרים', thNedarimNote: 'מקור'
       },
       en: {
         title: 'View Donations · Yeshivat Daat Aharon',
@@ -561,7 +562,7 @@
         noData: 'No donations to display',
         prev: 'Previous', next: 'Next',
         page: 'Page', of: 'of',
-        thDonor: 'Donor Name', thAmount: 'Donation Amount', thFundraiser: 'Fundraiser Name'
+        thDonor: 'Donor Name', thAmount: 'Donation Amount', thFundraiser: 'Fundraiser Name', thNedarimNote: 'Source'
       }
     };
 
@@ -572,6 +573,51 @@
 
     const PAGE_SIZE = 15;
     let allRows = [];
+
+    function cleanNum(v) {
+      const n = Number(String(v || 0).replace(/[^0-9.\-]/g, ''));
+      return Number.isNaN(n) ? 0 : n;
+    }
+
+    function isPaid(d) {
+      return String((d && d.status) || '').toLowerCase() === 'paid';
+    }
+
+    function parseDonationDate(d) {
+      const value = d && (d.paymentDate || d.createdAt || d.importedAt || d.TransactionTime || d.date);
+      const looksNedarim = !!(d && /nedarim|נדרים/i.test([
+        d.source,
+        d.paymentProcessor,
+        d.processor,
+        d.notes,
+        d.category
+      ].filter(Boolean).join(' ')));
+
+      function clampNedarimFutureDate(parsed) {
+        if (!parsed || Number.isNaN(parsed.getTime())) return parsed;
+        const now = new Date();
+        const futureLimit = new Date(now.getTime() + 36 * 60 * 60 * 1000);
+        if (looksNedarim && parsed > futureLimit) {
+          const fallbackValues = [d.importedAt, d.createdAt, d.paymentDate, d.TransactionTime, d.date]
+            .filter(Boolean)
+            .filter(function(v){ return String(v) !== String(value); });
+          for (let i = 0; i < fallbackValues.length; i += 1) {
+            const fb = fallbackValues[i];
+            const f = new Date(fb);
+            if (!Number.isNaN(f.getTime()) && f <= futureLimit) return f;
+          }
+          return now;
+        }
+        return parsed;
+      }
+
+      const x = value ? new Date(value) : null;
+      if (x && !Number.isNaN(x.getTime())) return clampNedarimFutureDate(x);
+      return looksNedarim ? new Date() : null;
+    }
+
+    function startOfMonth(d) { return new Date(d.getFullYear(), d.getMonth(), 1); }
+    function endOfMonth(d) { return new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999); }
 
     function isRecurring(d) {
       const txt = [
@@ -609,6 +655,36 @@
       return dt.getFullYear() === now.getFullYear() && dt.getMonth() === now.getMonth();
     }
 
+    function isCurrentMonthDonation(d, when) {
+      if (!isPaid(d)) return false;
+      const dt = parseDonationDate(d);
+      if (!dt) return false;
+      const now = when || new Date();
+      return dt >= startOfMonth(now) && dt <= endOfMonth(now);
+    }
+
+    function amountForCurrentMonth(d) {
+      return cleanNum(d && (d.currentMonthAmount || d.monthlyAmount || d.installmentAmount || d.amount || d.chargedAmount));
+    }
+
+    function donationFrequency(d) {
+      d = d || {};
+      const raw = [
+        d.donationFrequency,
+        d.donationFrequencyLabel,
+        d.paymentType,
+        d.paymentTypeRaw,
+        d.notes,
+        d.rawNedarim && (d.rawNedarim.PaymentType || d.rawNedarim.TransactionType)
+      ].filter(Boolean).join(' ').toLowerCase();
+      if (/recurring|(^|[^a-z])hk([^a-z]|$)|הוראת\s*קבע|קבע|standing\s*order|horaat|keva/.test(raw)) {
+        return { key: 'recurring', label: 'הוראת קבע' };
+      }
+      const n = cleanNum(d.paymentInstallments || 1);
+      if (n > 1) return { key: 'one-time', label: 'חד פעמית בתשלומים' };
+      return { key: 'one-time', label: 'חד פעמית' };
+    }
+
     function fmtNumber(n) {
       return (Number(n) || 0).toLocaleString('en-US');
     }
@@ -619,19 +695,20 @@
       const usd = Number(s.USD || 0);
       if (ils > 0 && usd > 0) return '₪' + fmtNumber(ils) + ' / $' + fmtNumber(usd);
       if (ils > 0) return '₪' + fmtNumber(ils);
-      return '$' + fmtNumber(usd);
+      if (usd > 0) return '$' + fmtNumber(usd);
+      return '₪0';
     }
 
     function renderSummary() {
-      const monthly = allRows.filter(function(r){ return isCurrentMonth(r.raw); });
-      const recurring = monthly.filter(function(r){ return isRecurring(r.raw); });
-      const oneTime = monthly.filter(function(r){ return !isRecurring(r.raw); });
-      const nedarim = allRows.filter(function(r){ return isNedarim(r.raw); });
+      const monthly = allRows.filter(function(r){ return isCurrentMonthDonation(r.raw, new Date()); });
+      const recurring = monthly.filter(function(r){ return donationFrequency(r.raw).key === 'recurring'; });
+      const oneTime = monthly.filter(function(r){ return donationFrequency(r.raw).key !== 'recurring'; });
+      const nedarim = allRows.filter(function(r){ return isPaid(r.raw) && isNedarim(r.raw); });
 
       const sumCurrency = function(rows) {
         return rows.reduce(function(acc, r){
           const c = donorCurrency(r.raw);
-          acc[c] = (acc[c] || 0) + r.amount;
+          acc[c] = (acc[c] || 0) + amountForCurrentMonth(r.raw);
           return acc;
         }, { ILS: 0, USD: 0 });
       };
@@ -656,27 +733,136 @@
     }
 
     function donorCurrency(d) {
-      const raw = String((d && (d.currency || d.paymentCurrency || d.currencyCode)) || '').toUpperCase();
-      if (raw === 'ILS' || raw === 'NIS' || raw === '₪') return 'ILS';
-      return 'USD';
+      const rawText = [
+        d && d.currency,
+        d && d.paymentCurrency,
+        d && d.currencyCode,
+        d && d.currencySymbol,
+        d && d.currencyName,
+        d && d.selectedCurrency,
+        d && d.donationCurrency,
+        d && d.dedicationCurrency,
+        d && d.amount,
+        d && d.notes
+      ].filter(Boolean).join(' ');
+
+      if (/\bUSD\b|\$/i.test(rawText)) return 'USD';
+      if (/\bILS\b|\bNIS\b|₪|ש\s*"?\s*ח|שקל/i.test(rawText)) return 'ILS';
+
+      // Most donations in this flow are in ILS; use ILS when currency is missing.
+      return 'ILS';
     }
 
     function fmtAmount(d) {
-      const n = Number((d && d.amount) || 0) || 0;
+      const amountRaw = (d && d.amount);
+      const n = typeof amountRaw === 'number'
+        ? amountRaw
+        : (Number(String(amountRaw || '').replace(/,/g, '').replace(/[^0-9.-]/g, '')) || 0);
       const c = donorCurrency(d);
       return (c === 'ILS' ? '₪' : '$') + n.toLocaleString('en-US');
     }
 
+    function cleanFundraiserName(v) {
+      let txt = String(v || '').trim();
+      if (!txt) return '';
+      txt = txt.replace(/^(?:שם\s*המתרים|מתרים|fundraiser|agent|marketer)\s*[:\-]\s*/i, '').trim();
+      txt = txt.split(/[|,;\n]/)[0].trim();
+      txt = txt.replace(/^[-:]+|[-:]+$/g, '').trim();
+      return txt;
+    }
+
+    function isNameNoise(txt) {
+      const t = String(txt || '').trim();
+      if (!t) return true;
+      return /(הערות\s*נדרים|הערת\s*נדרים|נדרים|עמודי|עמודי|הישיבה|תרומה|מותאמת|אישית|source|website|one-time|recurring|חד\s*פעמית|הוראת\s*קבע|:)/i.test(t);
+    }
+
+    function extractNedarimParts(d) {
+      const raw = String((d && (d.notes || d.note || d.comment || d.remark || d.description)) || '').trim();
+      if (!raw) return { note: '', fundraiser: '' };
+
+      let txt = raw.replace(/הערות\s*נדרים\s*[:\-]?/ig, '').replace(/nedarim\s*notes?\s*[:\-]?/ig, '').trim();
+      txt = txt.replace(/\s{2,}/g, ' ');
+
+      const pipeParts = txt.split('|').map(function(s){ return String(s || '').trim(); }).filter(Boolean);
+      if (pipeParts.length >= 2) {
+        const notePart = pipeParts[0];
+        const fundraiserPart = cleanFundraiserName(pipeParts[pipeParts.length - 1]);
+        return { note: notePart, fundraiser: fundraiserPart };
+      }
+
+      const m = txt.match(/(?:שם\s*המתרים|מתרים|fundraiser|agent|marketer)\s*[:\-]\s*([^,|\n;]+)/i);
+      const fr = m ? cleanFundraiserName(m[1]) : '';
+      const note = txt.replace(/(?:שם\s*המתרים|מתרים|fundraiser|agent|marketer)\s*[:\-]\s*[^,|;\n]+/ig, '').trim();
+      return { note: note, fundraiser: fr };
+    }
+
     function fundraiser(d) {
-      return String((d && (d.donorName || d.honoreeName || d.fundraiserName || '')) || '').trim();
+      if (!d) return '';
+      const parts = extractNedarimParts(d);
+      if (parts.fundraiser && !isNameNoise(parts.fundraiser)) return parts.fundraiser;
+
+      const direct = [
+        d.donorName,
+        d.fundraiserName,
+        d.fundraiser,
+        d.agentName,
+        d.marketerName,
+        d.referrerName,
+        d.recruiterName,
+        d.sponsorName,
+        d.honoreeName,
+        d.deceasedName
+      ].map(cleanFundraiserName).find(function(v){ return v && !isNameNoise(v); });
+      if (direct) return direct;
+
+      const notes = String(d.notes || d.note || d.comment || d.remark || d.description || '');
+      const m = notes.match(/(?:שם\s*המתרים|מתרים|fundraiser|agent|marketer)\s*[:\-]\s*([^,|\n;]+)/i);
+      const fallback = m ? cleanFundraiserName(m[1]) : '';
+      return isNameNoise(fallback) ? '' : fallback;
+    }
+
+    function nedarimNote(d, fundraiserName) {
+      if (!d) return '';
+      const parts = extractNedarimParts(d);
+      let txt = String(parts.note || '').trim();
+      if (!txt) return '';
+
+      txt = txt.replace(/(?:שם\s*המתרים|מתרים|fundraiser|agent|marketer)\s*[:\-]\s*[^,|;\n]+/ig, '').trim();
+
+      if (fundraiserName) {
+        const escaped = fundraiserName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        txt = txt.replace(new RegExp('\\b' + escaped + '\\b', 'ig'), '').trim();
+      }
+
+      txt = txt.replace(/^[-,:|\s]+|[-,:|\s]+$/g, '').replace(/\s{2,}/g, ' ').trim();
+      return txt;
+    }
+
+    function donationSource(d) {
+      const txt = [
+        d && d.source,
+        d && d.paymentProcessor,
+        d && d.processor,
+        d && d.notes,
+        d && d.category
+      ].filter(Boolean).join(' ');
+
+      if (/banquest/i.test(txt)) return state.lang === 'he' ? 'Banquest' : 'Banquest';
+      if (/nedarim|נדרים/i.test(txt) || (d && d.source === 'nedarim_external')) {
+        return state.lang === 'he' ? 'נדרים פלוס' : 'Nedarim Plus';
+      }
+      return state.lang === 'he' ? 'האתר' : 'Website';
     }
 
     function normalizeRows(list) {
       return (list || []).map(function(d){
+        const fr = fundraiser(d);
         return {
           raw: d,
           donor: String((d && d.fullName) || '').trim(),
-          fundraiser: fundraiser(d),
+          fundraiser: fr,
+          nedarimNote: donationSource(d),
           amount: Number((d && d.amount) || 0) || 0
         };
       });
@@ -684,6 +870,7 @@
 
     function filteredRows() {
       return allRows.filter(function(r){
+        if (!isPaid(r.raw)) return false;
         if (state.quick === 'high' && r.amount < 1000) return false;
         if (state.quick === 'withFundraiser' && !r.fundraiser) return false;
         return true;
@@ -693,6 +880,11 @@
     function sortedRows(rows) {
       const out = rows.slice();
       out.sort(function(a,b){
+        const ta = parseDonationDate(a.raw);
+        const tb = parseDonationDate(b.raw);
+        const da = ta ? ta.getTime() : 0;
+        const db = tb ? tb.getTime() : 0;
+        if (db !== da) return db - da;
         return b.amount - a.amount;
       });
       return out;
@@ -717,6 +909,7 @@
           '<td>' + safe(r.donor || '—') + '</td>' +
           '<td>' + safe(fmtAmount(r.raw)) + '</td>' +
           '<td>' + safe(r.fundraiser || '—') + '</td>' +
+          '<td>' + safe(r.nedarimNote || '—') + '</td>' +
         '</tr>';
       }).join('');
 
@@ -769,6 +962,7 @@
       q('thDonor').textContent = t.thDonor;
       q('thAmount').textContent = t.thAmount;
       q('thFundraiser').textContent = t.thFundraiser;
+      q('thNedarimNote').textContent = t.thNedarimNote;
 
       q('langHe').classList.toggle('active', state.lang === 'he');
       q('langEn').classList.toggle('active', state.lang === 'en');
