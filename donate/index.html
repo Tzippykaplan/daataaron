@@ -634,6 +634,28 @@ html[dir="rtl"] .hero * {
   }
   html[dir="ltr"] .donation-notification-root { right: 20px; left: auto; }
   html[dir="rtl"] .donation-notification-root { left: 20px; right: auto; }
+  .donation-poll-status {
+    position: fixed;
+    top: 16px;
+    inset-inline-end: 16px;
+    width: min(320px, calc(100vw - 24px));
+    z-index: 1190;
+    border-radius: 16px;
+    padding: 12px 14px;
+    background: rgba(255,255,255,.96);
+    border: 1px solid rgba(15, 27, 45, 0.1);
+    box-shadow: var(--shadow-lg);
+    backdrop-filter: blur(10px);
+    color: var(--text);
+    font-size: 12.5px;
+    line-height: 1.5;
+  }
+  .donation-poll-status strong { display:block; font-size: 13px; margin-bottom: 4px; }
+  .donation-poll-status .muted { color: var(--text-3); }
+  .donation-poll-status.is-error { border-color: rgba(185,28,28,.2); background: rgba(254,242,242,.96); }
+  .donation-poll-status.is-ok { border-color: rgba(22,163,74,.18); background: rgba(236,253,245,.96); }
+  html[dir="ltr"] .donation-poll-status { right: 16px; left: auto; }
+  html[dir="rtl"] .donation-poll-status { left: 16px; right: auto; }
   @keyframes donation-pop-in {
     from { opacity: 0; transform: translateY(8px) scale(.98); }
     to { opacity: 1; transform: translateY(0) scale(1); }
@@ -3696,6 +3718,7 @@ html[dir="ltr"] .btn-primary.grow2 svg { transform: scaleX(-1); }
   let donorPollTimer = 0;
   let seenDonorIds = new Set();
   let lastSeenTimestamp = 0;
+  let pollStatusNode = null;
 
   function getLanguage() {
     const lang = (window.currentLanguage || localStorage.getItem('dedication_language') || document.documentElement.lang || 'he').toString().toLowerCase();
@@ -3710,6 +3733,33 @@ html[dir="ltr"] .btn-primary.grow2 svg { transform: scaleX(-1); }
     notificationRoot.setAttribute('aria-atomic', 'true');
     document.body.appendChild(notificationRoot);
     return notificationRoot;
+  }
+
+  function createPollStatusNode() {
+    if (pollStatusNode && pollStatusNode.isConnected) return pollStatusNode;
+    pollStatusNode = document.createElement('div');
+    pollStatusNode.className = 'donation-poll-status';
+    pollStatusNode.innerHTML = '<strong>Donation Alerts</strong><div class="muted">Starting polling...</div>';
+    document.body.appendChild(pollStatusNode);
+    return pollStatusNode;
+  }
+
+  function updatePollStatus(details) {
+    const node = createPollStatusNode();
+    const state = details && details.state ? details.state : 'idle';
+    node.classList.toggle('is-error', state === 'error');
+    node.classList.toggle('is-ok', state === 'ok');
+    const lastCheck = details && details.lastCheck ? new Date(details.lastCheck).toLocaleTimeString('he-IL') : '—';
+    const donorsCount = details && typeof details.donorsCount === 'number' ? details.donorsCount : 0;
+    const freshCount = details && typeof details.freshCount === 'number' ? details.freshCount : 0;
+    const lastId = details && details.lastId ? details.lastId : '—';
+    const statusText = details && details.statusText ? details.statusText : 'Idle';
+    node.innerHTML = '<strong>Donation Alerts</strong>' +
+      '<div>' + statusText + '</div>' +
+      '<div class="muted">Last check: ' + lastCheck + '</div>' +
+      '<div class="muted">Donors returned: ' + donorsCount + '</div>' +
+      '<div class="muted">New donors found: ' + freshCount + '</div>' +
+      '<div class="muted">Last donor id: ' + lastId + '</div>';
   }
 
   function normalizeDonorId(donor) {
@@ -3835,11 +3885,17 @@ html[dir="ltr"] .btn-primary.grow2 svg { transform: scaleX(-1); }
         method: 'GET',
         cache: 'no-store'
       });
-      if (!response.ok) return [];
+      if (!response.ok) {
+        updatePollStatus({ state: 'error', statusText: 'Polling failed: HTTP ' + response.status, lastCheck: Date.now(), donorsCount: 0, freshCount: 0, lastId: '' });
+        return [];
+      }
       const data = await response.json();
-      return data && Array.isArray(data.donors) ? data.donors : [];
+      const donors = data && Array.isArray(data.donors) ? data.donors : [];
+      updatePollStatus({ state: 'ok', statusText: 'Polling active', lastCheck: Date.now(), donorsCount: donors.length, freshCount: 0, lastId: donors[0] && donors[0].id ? String(donors[0].id) : '' });
+      return donors;
     } catch (error) {
       console.warn('Donation notification polling failed:', error);
+      updatePollStatus({ state: 'error', statusText: 'Polling failed: ' + (error && error.message ? error.message : 'network error'), lastCheck: Date.now(), donorsCount: 0, freshCount: 0, lastId: '' });
       return [];
     }
   }
@@ -3867,6 +3923,8 @@ html[dir="ltr"] .btn-primary.grow2 svg { transform: scaleX(-1); }
           });
         });
 
+      updatePollStatus({ state: 'ok', statusText: 'Initial scan completed', lastCheck: Date.now(), donorsCount: donors.length, freshCount: recentFresh.length, lastId: donors[0] && donors[0].id ? String(donors[0].id) : '' });
+
       rememberSeenDonors(donors);
       return;
     }
@@ -3891,6 +3949,8 @@ html[dir="ltr"] .btn-primary.grow2 svg { transform: scaleX(-1); }
           paymentMethod: donor && donor.paymentType === 'HK' ? 'bank' : 'card'
         });
       });
+
+    updatePollStatus({ state: 'ok', statusText: 'New donors detected', lastCheck: Date.now(), donorsCount: donors.length, freshCount: fresh.length, lastId: donors[0] && donors[0].id ? String(donors[0].id) : '' });
 
     rememberSeenDonors(fresh);
     rememberSeenDonors(donors);
@@ -3932,6 +3992,7 @@ html[dir="ltr"] .btn-primary.grow2 svg { transform: scaleX(-1); }
 
   document.addEventListener('DOMContentLoaded', function () {
     createNotificationRoot();
+    createPollStatusNode();
     startDonationPolling();
     try {
       if ('BroadcastChannel' in window) {
