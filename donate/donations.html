@@ -347,8 +347,10 @@
       background: var(--surface);
       color: var(--text-2);
       border-radius: 999px;
-      padding: 6px 11px;
-      font-size: 12px;
+      padding: 10px 18px;
+      min-height: 42px;
+      font-size: 14px;
+      font-weight: 600;
       cursor: pointer;
       white-space: nowrap;
     }
@@ -572,7 +574,10 @@
     };
 
     const PAGE_SIZE = 15;
+    const AUTO_REFRESH_MS = 2 * 60 * 1000;
     let allRows = [];
+    let refreshTimer = null;
+    let fetchInFlight = false;
 
     function cleanNum(v) {
       const n = Number(String(v || 0).replace(/[^0-9.\-]/g, ''));
@@ -986,7 +991,10 @@
       q('langEn').addEventListener('click', function(){ setLang('en'); });
     }
 
-    async function fetchRows() {
+    async function fetchRows(options) {
+      if (fetchInFlight) return;
+      const opts = options || {};
+      fetchInFlight = true;
       let list = [];
       try {
         const res = await fetch(CONFIG.APPS_SCRIPT_URL + '?action=get&t=' + Date.now(), { cache: 'no-store' });
@@ -1006,11 +1014,32 @@
       }
 
       allRows = normalizeRows(list);
+      if (!opts.preservePage) state.page = 1;
       render();
+      fetchInFlight = false;
+    }
+
+    function scheduleAutoRefresh() {
+      if (refreshTimer) window.clearInterval(refreshTimer);
+      refreshTimer = window.setInterval(function(){
+        fetchRows({ preservePage: true });
+      }, AUTO_REFRESH_MS);
+    }
+
+    function bindAutoRefreshEvents() {
+      document.addEventListener('visibilitychange', function(){
+        if (!document.hidden) fetchRows({ preservePage: true });
+      });
+
+      window.addEventListener('focus', function(){
+        fetchRows({ preservePage: true });
+      });
     }
 
     function init() {
       bindInputs();
+      bindAutoRefreshEvents();
+      scheduleAutoRefresh();
 
       const urlLang = new URLSearchParams(window.location.search).get('lang');
       const stored = localStorage.getItem('dedication_language');
