@@ -2278,7 +2278,18 @@ function json(obj) {
       if (pull.ok) {
         const data = await pull.json();
         if (data && Array.isArray(data.donors)) {
-          donors = mergeDonorsById(donors, data.donors);
+          const localMap = new Map();
+          (donors || []).forEach(d => { if (d && d.id) localMap.set(String(d.id), d); });
+          (data.donors || []).forEach(d => {
+            if (!d || !d.id) return;
+            const old = localMap.get(String(d.id));
+            const merged = Object.assign({}, old || {}, d);
+            if ((!merged.donorName || !String(merged.donorName).trim()) && old && old.donorName) merged.donorName = old.donorName;
+            if ((!merged.honoreeName || !String(merged.honoreeName).trim()) && old && old.honoreeName) merged.honoreeName = old.honoreeName;
+            if ((!merged.notes || !String(merged.notes).trim()) && old && old.notes) merged.notes = old.notes;
+            localMap.set(String(d.id), merged);
+          });
+          donors = Array.from(localMap.values()).sort((a,b) => new Date(b.paymentDate || b.createdAt || 0) - new Date(a.paymentDate || a.createdAt || 0));
         }
       }
 
