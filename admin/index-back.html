@@ -1,0 +1,2938 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0" name="viewport"/>
+  <title>
+   נציבי דעת אהרן · דשבורד
+  </title>
+  <link href="https://fonts.googleapis.com" rel="preconnect"/>
+  <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+  <link href="https://fonts.googleapis.com/css2?family=Google+Sans:ital,wght@0,400;0,500;0,700;1,400&amp;display=swap" rel="stylesheet"/>
+  <link href="../assets/css/styles.css" rel="stylesheet"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js">
+  </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js">
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js">
+  </script>
+ </head>
+ <body class="locked page-admin">
+  <div class="toast" id="toast">
+  </div>
+  <!-- Login screen -->
+  <div class="login-screen" id="loginScreen">
+   <div class="login-card">
+    <div aria-label="דעת אהרן" class="login-logo" role="img">
+    </div>
+    <h1>
+     נציבי דעת אהרן
+    </h1>
+    <div class="login-sub">
+     Smart Manager · התחברות למערכת
+    </div>
+    <form id="loginForm" onsubmit="doLogin(event)">
+     <div class="field">
+      <label>
+       שם משתמש
+      </label>
+      <input autocapitalize="none" autocomplete="username" autocorrect="off" id="loginUser" placeholder="הקלד שם משתמש" required="" spellcheck="false" type="text"/>
+     </div>
+     <div class="field">
+      <label>
+       סיסמה
+      </label>
+      <div class="u-admin-001">
+       <input autocapitalize="none" autocomplete="current-password" autocorrect="off" class="u-admin-002" id="loginPass" placeholder="הקלד סיסמה" required="" spellcheck="false" type="password"/>
+       <button class="u-admin-003" id="passToggleBtn" onclick="togglePass()" type="button">
+        הצג
+       </button>
+      </div>
+     </div>
+     <div class="login-error" id="loginError">
+      שם המשתמש או הסיסמה שגויים
+     </div>
+     <button class="btn btn-primary u-admin-004" type="submit">
+      <svg fill="none" height="18" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="18">
+       <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4">
+       </path>
+       <polyline points="10 17 15 12 10 7">
+       </polyline>
+       <line x1="15" x2="3" y1="12" y2="12">
+       </line>
+      </svg>
+      כניסה
+     </button>
+    </form>
+    <div class="login-foot">
+     גישה למורשים בלבד · המערכת מנהלת נתוני תורמים והנצחות
+    </div>
+   </div>
+  </div>
+  <!-- Hidden PDF receipt template -->
+  <div class="receipt-shell" id="receiptShell">
+   <div class="receipt" id="receipt">
+    <div class="r-header">
+     <div aria-label="דעת אהרן" class="r-logo" role="img">
+     </div>
+     <div class="r-org">
+      <div class="r-org-name">
+       דעת אהרן יהודה לייב (ע"ר)
+      </div>
+      <div class="r-org-sub">
+       מוסד תורני - ישיבה וכולל
+      </div>
+      <div class="r-org-meta">
+       הרב קצנלבוגן רפאל, 64, ירושלים, 9387169
+       <br/>
+       טל׳: 02-5357100 · office@daasaharon.com
+      </div>
+     </div>
+    </div>
+    <div class="r-title">
+     <h1>
+      קבלה
+     </h1>
+     <div class="r-title-sub">
+      RECEIPT
+     </div>
+    </div>
+    <div class="r-meta-row">
+     <div class="r-meta-item">
+      <span class="r-meta-label">
+       קבלה מס׳
+      </span>
+      <span class="r-meta-value" id="rNumber">
+       0001
+      </span>
+     </div>
+     <div class="r-meta-item">
+      <span class="r-meta-label">
+       תאריך
+      </span>
+      <span class="r-meta-value" id="rDate">
+       —
+      </span>
+     </div>
+     <div class="r-meta-item">
+      <span class="r-meta-label">
+       קטגוריה
+      </span>
+      <span class="r-meta-value" id="rCategory">
+       —
+      </span>
+     </div>
+    </div>
+    <div class="r-section">
+     <div class="r-section-label">
+      קיבלנו בתודה מאת
+     </div>
+     <div class="r-section-value" id="rDonorName">
+      —
+     </div>
+    </div>
+    <div class="r-section">
+     <div class="r-section-label">
+      כתובת
+     </div>
+     <div class="r-section-value" id="rDonorAddress">
+      —
+     </div>
+    </div>
+    <div class="r-amount-box">
+     <div>
+      <div class="r-amount-label">
+       סך הקבלה
+      </div>
+      <div class="r-amount-value" id="rAmount">
+       $0
+      </div>
+      <div class="r-amount-words" id="rAmountWords">
+      </div>
+     </div>
+     <div class="r-amount-icon">
+      $
+     </div>
+    </div>
+    <div class="r-purpose-box">
+     <div class="r-purpose-label">
+      עבור
+     </div>
+     <div class="r-purpose-value" id="rPurpose">
+      —
+     </div>
+    </div>
+    <div class="r-footer">
+     <div class="r-sign-row">
+      <div class="r-sign-block">
+       <div class="r-sign-line">
+       </div>
+       <div class="r-sign-label">
+        חתימת המקבל
+       </div>
+      </div>
+      <div class="r-sign-block">
+       <div class="r-sign-line">
+       </div>
+       <div class="r-sign-label">
+        חותמת המוסד
+       </div>
+      </div>
+     </div>
+     <div class="r-legal">
+      <strong>
+       ע.ר. 580659894
+      </strong>
+      ·
+      <strong>
+       ישיבת דעת אהרן יהודה ליב
+      </strong>
+      <br/>
+      מוסד מוכר לפי סעיף 46 לפקודת מס הכנסה. תרומה זו מזכה את התורם בהטבות מס בהתאם לחוק.
+     </div>
+    </div>
+   </div>
+  </div>
+  <!-- Modal -->
+  <div class="modal-backdrop" id="modal" onclick="closeModalBg(event)">
+   <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-head">
+     <div class="modal-title" id="modalTitle">
+      —
+     </div>
+     <button class="modal-close" onclick="closeModal()">
+      <svg fill="none" height="18" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" viewbox="0 0 24 24" width="18">
+       <line x1="18" x2="6" y1="6" y2="18">
+       </line>
+       <line x1="6" x2="18" y1="6" y2="18">
+       </line>
+      </svg>
+     </button>
+    </div>
+    <div id="modalBody">
+    </div>
+   </div>
+  </div>
+  <div class="app">
+   <header class="topbar">
+    <div class="brand">
+     <div aria-label="דעת אהרן" class="brand-mark" role="img">
+     </div>
+     <div class="brand-text">
+      <h1>
+       נציבי דעת אהרן
+      </h1>
+      <p>
+       Smart Manager
+      </p>
+     </div>
+    </div>
+    <div class="topbar-actions">
+     <button class="icon-btn" onclick="syncNow()" title="סנכרון">
+      <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+       <polyline points="23 4 23 10 17 10">
+       </polyline>
+       <polyline points="1 20 1 14 7 14">
+       </polyline>
+       <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15">
+       </path>
+      </svg>
+     </button>
+     <button class="icon-btn" onclick="showPage('new')" title="תורם חדש">
+      <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" viewbox="0 0 24 24">
+       <line x1="12" x2="12" y1="5" y2="19">
+       </line>
+       <line x1="5" x2="19" y1="12" y2="12">
+       </line>
+      </svg>
+     </button>
+    </div>
+   </header>
+   <nav class="tabs" id="topTabs">
+    <button class="tab active" data-page="dashboard">
+     <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+      <rect height="9" width="7" x="3" y="3">
+      </rect>
+      <rect height="5" width="7" x="14" y="3">
+      </rect>
+      <rect height="9" width="7" x="14" y="12">
+      </rect>
+      <rect height="5" width="7" x="3" y="16">
+      </rect>
+     </svg>
+     דשבורד
+    </button>
+    <button class="tab" data-page="donors">
+     <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2">
+      </path>
+      <circle cx="9" cy="7" r="4">
+      </circle>
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87">
+      </path>
+      <path d="M16 3.13a4 4 0 0 1 0 7.75">
+      </path>
+     </svg>
+     תורמים
+    </button>
+    <button class="tab" data-page="reports">
+     <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+      <line x1="18" x2="18" y1="20" y2="10">
+      </line>
+      <line x1="12" x2="12" y1="20" y2="4">
+      </line>
+      <line x1="6" x2="6" y1="20" y2="14">
+      </line>
+     </svg>
+     דוחות
+    </button>
+    <button class="tab" data-page="actions">
+     <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2">
+      </polygon>
+     </svg>
+     פעולות
+    </button>
+    <button class="tab" data-page="settings">
+     <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+      <circle cx="12" cy="12" r="3">
+      </circle>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+      </path>
+     </svg>
+     הגדרות
+    </button>
+    <button class="tab" data-page="new">
+     <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" viewbox="0 0 24 24">
+      <line x1="12" x2="12" y1="5" y2="19">
+      </line>
+      <line x1="5" x2="19" y1="12" y2="12">
+      </line>
+     </svg>
+     תורם חדש
+    </button>
+   </nav>
+   <!-- DASHBOARD -->
+   <section class="page active" id="page-dashboard">
+    <div class="page-head">
+     <h2 class="page-title">
+      דשבורד
+     </h2>
+     <div class="page-actions">
+      <button class="btn btn-ghost" onclick="syncNow()">
+       <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+        <polyline points="23 4 23 10 17 10">
+        </polyline>
+        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15">
+        </path>
+       </svg>
+       סנכרון
+      </button>
+      <button class="btn btn-primary" onclick="showPage('new')">
+       <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" viewbox="0 0 24 24">
+        <line x1="12" x2="12" y1="5" y2="19">
+        </line>
+        <line x1="5" x2="19" y1="12" y2="12">
+        </line>
+       </svg>
+       תורם חדש
+      </button>
+     </div>
+    </div>
+    <div class="hero">
+     <div class="hero-label">
+      סך הכל גויס
+     </div>
+     <div class="hero-amount">
+      <small>
+       $
+      </small>
+      <span id="totalRaised">
+       0
+      </span>
+     </div>
+     <div class="hero-meta">
+      <div class="hero-progress">
+       <div class="hero-progress-fill" id="progressFill">
+       </div>
+      </div>
+      <div class="hero-pct">
+       <span id="percentRaised">
+        0
+       </span>
+       %
+      </div>
+     </div>
+     <div class="hero-target u-admin-005">
+      יעד: $
+      <span id="targetAmount">
+       0
+      </span>
+     </div>
+    </div>
+    <div class="stat-grid">
+     <div class="stat" data-tone="all">
+      <div class="stat-icon">
+       <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2">
+        </path>
+        <circle cx="9" cy="7" r="4">
+        </circle>
+       </svg>
+      </div>
+      <div class="stat-value" id="statAll">
+       0
+      </div>
+      <div class="stat-label">
+       תורמים
+      </div>
+     </div>
+     <div class="stat" data-tone="paid">
+      <div class="stat-icon">
+       <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" viewbox="0 0 24 24">
+        <polyline points="20 6 9 17 4 12">
+        </polyline>
+       </svg>
+      </div>
+      <div class="stat-value" id="statPaid">
+       0
+      </div>
+      <div class="stat-label">
+       שולם
+      </div>
+     </div>
+     <div class="stat" data-tone="pending">
+      <div class="stat-icon">
+       <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+        <circle cx="12" cy="12" r="10">
+        </circle>
+        <polyline points="12 6 12 12 16 14">
+        </polyline>
+       </svg>
+      </div>
+      <div class="stat-value" id="statPending">
+       0
+      </div>
+      <div class="stat-label">
+       ממתין
+      </div>
+     </div>
+     <div class="stat" data-tone="week">
+      <div class="stat-icon">
+       <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+        <rect height="18" rx="2" ry="2" width="18" x="3" y="4">
+        </rect>
+        <line x1="16" x2="16" y1="2" y2="6">
+        </line>
+        <line x1="8" x2="8" y1="2" y2="6">
+        </line>
+        <line x1="3" x2="21" y1="10" y2="10">
+        </line>
+       </svg>
+      </div>
+      <div class="stat-value" id="statWeek">
+       0
+      </div>
+      <div class="stat-label">
+       השבוע
+      </div>
+     </div>
+    </div>
+    <div class="card section">
+     <div class="card-title">
+      הנצחות השבוע
+      <button class="link-btn" onclick="showPage('donors')">
+       הצג הכל ←
+      </button>
+     </div>
+     <div id="weekList">
+     </div>
+    </div>
+    <div class="card section">
+     <div class="card-title">
+      <div>
+       <div>
+        הכנסות לפי חודש
+       </div>
+       <div class="card-subtitle">
+        12 חודשי השנה העברית
+       </div>
+      </div>
+     </div>
+     <div class="chart-wrap">
+      <div class="chart" id="chart">
+      </div>
+      <div class="chart-labels" id="chartLabels">
+      </div>
+     </div>
+    </div>
+    <div class="card section">
+     <div class="card-title">
+      סטטוס תשלומים
+     </div>
+     <div class="chip-row" id="filterChips">
+      <button class="chip active" data-filter="all">
+       הכל
+      </button>
+      <button class="chip" data-filter="paid">
+       שולם
+      </button>
+      <button class="chip" data-filter="pending">
+       ממתין
+      </button>
+      <button class="chip" data-filter="unpaid">
+       לא שולם
+      </button>
+      <button class="chip" data-filter="week">
+       השבוע
+      </button>
+      <button class="chip" data-filter="cat:תורם חדש">
+       תורם חדש
+      </button>
+      <button class="chip" data-filter="cat:תלמידי הרב קפלן">
+       תלמידי הרב קפלן
+      </button>
+      <button class="chip" data-filter='cat:ארה"ב'>
+       ארה"ב
+      </button>
+      <button class="chip" data-filter="cat:ישראל">
+       ישראל
+      </button>
+      <button class="chip" data-filter="cat:תורם מזדמן">
+       תורם מזדמן
+      </button>
+     </div>
+     <div class="u-admin-006" id="dashboardDonorList">
+     </div>
+    </div>
+   </section>
+   <!-- DONORS -->
+   <section class="page" id="page-donors">
+    <div class="page-head">
+     <h2 class="page-title">
+      תורמים
+     </h2>
+     <div class="page-actions">
+      <button class="btn btn-ghost btn-sm" onclick="bulkRemind()">
+       <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9">
+        </path>
+        <path d="M13.73 21a2 2 0 0 1-3.46 0">
+        </path>
+       </svg>
+       תזכורות
+      </button>
+      <button class="btn btn-accent btn-sm" onclick="exportCSV()">
+       <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4">
+        </path>
+        <polyline points="7 10 12 15 17 10">
+        </polyline>
+        <line x1="12" x2="12" y1="15" y2="3">
+        </line>
+       </svg>
+       CSV
+      </button>
+      <button class="btn btn-primary btn-sm" onclick="showPage('new')">
+       <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" viewbox="0 0 24 24">
+        <line x1="12" x2="12" y1="5" y2="19">
+        </line>
+        <line x1="5" x2="19" y1="12" y2="12">
+        </line>
+       </svg>
+       חדש
+      </button>
+     </div>
+    </div>
+    <div class="card">
+     <div class="field u-admin-007">
+      <input id="searchBox" oninput="renderAllDonors()" placeholder="🔍 חפש לפי שם, קטגוריה, נפטר, טלפון או מייל..." type="text"/>
+     </div>
+     <div class="filter-panel" id="advFilterPanel">
+      <div class="filter-panel-header" onclick="toggleAdvFilters()">
+       <div>
+        סינון מתקדם
+        <span id="filterDot">
+        </span>
+       </div>
+       <svg class="chevron" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+        <polyline points="6 9 12 15 18 9">
+        </polyline>
+       </svg>
+      </div>
+      <div class="filter-panel-body">
+       <div class="field-row cols-2">
+        <div class="field">
+         <label>
+          סכום מינימום ($)
+         </label>
+         <input id="advAmountMin" min="0" oninput="renderAllDonors()" type="number"/>
+        </div>
+        <div class="field">
+         <label>
+          סכום מקסימום ($)
+         </label>
+         <input id="advAmountMax" min="0" oninput="renderAllDonors()" type="number"/>
+        </div>
+       </div>
+       <div class="field-row cols-2 mt-10">
+        <div class="field">
+         <label>
+          תאריך תשלום מ-
+         </label>
+         <input id="advDateFrom" oninput="renderAllDonors()" type="date"/>
+        </div>
+        <div class="field">
+         <label>
+          תאריך תשלום עד-
+         </label>
+         <input id="advDateTo" oninput="renderAllDonors()" type="date"/>
+        </div>
+       </div>
+       <div class="field-row cols-2 mt-10">
+        <div class="field">
+         <label>
+          קטגוריה
+         </label>
+         <select id="advCategory" onchange="renderAllDonors()">
+          <option value="">
+           כל הקטגוריות
+          </option>
+          <option>
+           תורם חדש
+          </option>
+          <option>
+           תלמידי הרב קפלן
+          </option>
+          <option>
+           ארה"ב
+          </option>
+          <option>
+           ישראל
+          </option>
+          <option>
+           תורם מזדמן
+          </option>
+         </select>
+        </div>
+        <div class="field">
+         <label>
+          חודש עברי
+         </label>
+         <select id="advHebMonth" onchange="renderAllDonors()">
+          <option value="">
+           כל החודשים
+          </option>
+          <option>
+           תשרי
+          </option>
+          <option>
+           חשוון
+          </option>
+          <option>
+           כסלו
+          </option>
+          <option>
+           טבת
+          </option>
+          <option>
+           שבט
+          </option>
+          <option>
+           אדר
+          </option>
+          <option>
+           אדר א׳
+          </option>
+          <option>
+           אדר ב׳
+          </option>
+          <option>
+           ניסן
+          </option>
+          <option>
+           אייר
+          </option>
+          <option>
+           סיון
+          </option>
+          <option>
+           תמוז
+          </option>
+          <option>
+           אב
+          </option>
+          <option>
+           אלול
+          </option>
+         </select>
+        </div>
+       </div>
+       <div class="field-row cols-2 mt-10">
+        <div class="field">
+         <label>
+          מיון לפי
+         </label>
+         <select id="advSort" onchange="renderAllDonors()">
+          <option value="recent">
+           חדשים ביותר
+          </option>
+          <option value="oldest">
+           ישנים ביותר
+          </option>
+          <option value="amount-desc">
+           סכום (גבוה→נמוך)
+          </option>
+          <option value="amount-asc">
+           סכום (נמוך→גבוה)
+          </option>
+          <option value="name">
+           לפי שם
+          </option>
+         </select>
+        </div>
+        <div class="field">
+         <label>
+         </label>
+         <button class="btn btn-ghost u-admin-008" onclick="resetAdvFilters()">
+          <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+           <line x1="18" x2="6" y1="6" y2="18">
+           </line>
+           <line x1="6" x2="18" y1="6" y2="18">
+           </line>
+          </svg>
+          איפוס
+         </button>
+        </div>
+       </div>
+      </div>
+     </div>
+     <div class="chip-row u-admin-009" id="donorFilterChips">
+      <button class="chip active" data-filter="all">
+       הכל
+      </button>
+      <button class="chip" data-filter="paid">
+       שולם
+      </button>
+      <button class="chip" data-filter="pending">
+       ממתין
+      </button>
+      <button class="chip" data-filter="unpaid">
+       לא שולם
+      </button>
+      <button class="chip" data-filter="overdue">
+       איחור 30+ יום
+      </button>
+     </div>
+     <div class="small muted u-admin-010" id="resultCount">
+     </div>
+     <div id="allDonorList">
+     </div>
+    </div>
+   </section>
+   <!-- REPORTS -->
+   <section class="page" id="page-reports">
+    <div class="page-head">
+     <h2 class="page-title">
+      דוחות חכמים
+     </h2>
+     <div class="page-actions">
+      <button class="btn btn-accent btn-sm" onclick="exportCSV()">
+       <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4">
+        </path>
+        <polyline points="7 10 12 15 17 10">
+        </polyline>
+        <line x1="12" x2="12" y1="15" y2="3">
+        </line>
+       </svg>
+       ייצוא
+      </button>
+     </div>
+    </div>
+    <div class="stat-grid">
+     <div class="stat" data-tone="up">
+      <div class="stat-icon">
+       <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18">
+        </polyline>
+        <polyline points="17 6 23 6 23 12">
+        </polyline>
+       </svg>
+      </div>
+      <div class="stat-value" id="kpiThisMonth">
+       $0
+      </div>
+      <div class="stat-label">
+       החודש
+      </div>
+      <div class="stat-trend" id="kpiThisMonthTrend">
+      </div>
+     </div>
+     <div class="stat" data-tone="info">
+      <div class="stat-icon">
+       <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+        <line x1="12" x2="12" y1="1" y2="23">
+        </line>
+        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6">
+        </path>
+       </svg>
+      </div>
+      <div class="stat-value" id="kpiAvg">
+       $0
+      </div>
+      <div class="stat-label">
+       תרומה ממוצעת
+      </div>
+     </div>
+     <div class="stat" data-tone="warning">
+      <div class="stat-icon">
+       <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+        <circle cx="12" cy="12" r="10">
+        </circle>
+        <line x1="12" x2="12" y1="8" y2="12">
+        </line>
+        <line x1="12" x2="12.01" y1="16" y2="16">
+        </line>
+       </svg>
+      </div>
+      <div class="stat-value" id="kpiOverdue">
+       0
+      </div>
+      <div class="stat-label">
+       איחור 30+
+      </div>
+     </div>
+     <div class="stat" data-tone="up">
+      <div class="stat-icon">
+       <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14">
+        </path>
+        <polyline points="22 4 12 14.01 9 11.01">
+        </polyline>
+       </svg>
+      </div>
+      <div class="stat-value" id="kpiRetention">
+       0%
+      </div>
+      <div class="stat-label">
+       תורמים חוזרים
+      </div>
+     </div>
+    </div>
+    <div class="card section">
+     <div class="card-title">
+      השוואת חודש נוכחי לקודם
+     </div>
+     <div id="monthCompare">
+     </div>
+    </div>
+    <div class="card section">
+     <div class="card-title">
+      5 התורמים המובילים
+     </div>
+     <div id="topDonors">
+     </div>
+    </div>
+    <div class="card section">
+     <div class="card-title">
+      ממוצע תרומה לפי קטגוריה
+     </div>
+     <div id="catAverage">
+     </div>
+    </div>
+    <div class="card section">
+     <div class="card-title">
+      תורמים שלא שילמו מעל 30 יום
+      <button class="link-btn" onclick="exportOverdue()">
+       ייצוא ←
+      </button>
+     </div>
+     <div id="overdueList">
+     </div>
+    </div>
+    <div class="card section">
+     <div class="card-title">
+      השוואה שנתית
+     </div>
+     <div class="chart-wrap">
+      <div class="chart" id="yoyChart">
+      </div>
+      <div class="chart-labels" id="yoyLabels">
+      </div>
+     </div>
+    </div>
+   </section>
+   <!-- ACTIONS -->
+   <section class="page" id="page-actions">
+    <div class="page-head">
+     <h2 class="page-title">
+      פעולות
+     </h2>
+    </div>
+    <div class="actions-grid">
+     <button class="action-card" onclick="showPage('new')">
+      <div class="action-card-icon">
+       <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2">
+        </path>
+        <circle cx="8.5" cy="7" r="4">
+        </circle>
+        <line x1="20" x2="20" y1="8" y2="14">
+        </line>
+        <line x1="23" x2="17" y1="11" y2="11">
+        </line>
+       </svg>
+      </div>
+      <div class="action-card-label">
+       הוספת תורם
+      </div>
+     </button>
+     <button class="action-card" onclick="showWeekMemorials()">
+      <div class="action-card-icon">
+       <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z">
+        </path>
+        <polyline points="14 2 14 8 20 8">
+        </polyline>
+       </svg>
+      </div>
+      <div class="action-card-label">
+       מנציחי השבוע
+      </div>
+     </button>
+     <button class="action-card" onclick="bulkRemind()">
+      <div class="action-card-icon">
+       <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9">
+        </path>
+        <path d="M13.73 21a2 2 0 0 1-3.46 0">
+        </path>
+       </svg>
+      </div>
+      <div class="action-card-label">
+       שלח תזכורות
+      </div>
+     </button>
+     <button class="action-card" onclick="syncNow()">
+      <div class="action-card-icon">
+       <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+        <polyline points="23 4 23 10 17 10">
+        </polyline>
+        <polyline points="1 20 1 14 7 14">
+        </polyline>
+        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15">
+        </path>
+       </svg>
+      </div>
+      <div class="action-card-label">
+       סנכרון Sheets
+      </div>
+     </button>
+     <button class="action-card" onclick="exportCSV()">
+      <div class="action-card-icon">
+       <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4">
+        </path>
+        <polyline points="7 10 12 15 17 10">
+        </polyline>
+        <line x1="12" x2="12" y1="15" y2="3">
+        </line>
+       </svg>
+      </div>
+      <div class="action-card-label">
+       ייצוא CSV
+      </div>
+     </button>
+     <button class="action-card" onclick="backupJSON()">
+      <div class="action-card-icon">
+       <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z">
+        </path>
+        <polyline points="17 21 17 13 7 13 7 21">
+        </polyline>
+        <polyline points="7 3 7 8 15 8">
+        </polyline>
+       </svg>
+      </div>
+      <div class="action-card-label">
+       גיבוי JSON
+      </div>
+     </button>
+     <button class="action-card" onclick="showPage('donors')">
+      <div class="action-card-icon">
+       <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+        <ellipse cx="12" cy="5" rx="9" ry="3">
+        </ellipse>
+        <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3">
+        </path>
+        <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5">
+        </path>
+       </svg>
+      </div>
+      <div class="action-card-label">
+       כל הנתונים
+      </div>
+     </button>
+     <button class="action-card" onclick="exportOverdue()">
+      <div class="action-card-icon">
+       <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+        <circle cx="12" cy="12" r="10">
+        </circle>
+        <line x1="12" x2="12" y1="8" y2="12">
+        </line>
+        <line x1="12" x2="12.01" y1="16" y2="16">
+        </line>
+       </svg>
+      </div>
+      <div class="action-card-label">
+       ייצוא איחורים
+      </div>
+     </button>
+     <button class="action-card" onclick="showPage('reports')">
+      <div class="action-card-icon">
+       <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+        <line x1="18" x2="18" y1="20" y2="10">
+        </line>
+        <line x1="12" x2="12" y1="20" y2="4">
+        </line>
+        <line x1="6" x2="6" y1="20" y2="14">
+        </line>
+       </svg>
+      </div>
+      <div class="action-card-label">
+       דוחות
+      </div>
+     </button>
+    </div>
+   </section>
+   <!-- SETTINGS -->
+   <section class="page" id="page-settings">
+    <div class="page-head">
+     <h2 class="page-title">
+      הגדרות
+     </h2>
+    </div>
+    <div class="card section">
+     <div class="form-section-title">
+      סנכרון Google Sheets
+     </div>
+     <div class="sync-status" id="syncStatus">
+      <div class="sync-dot">
+      </div>
+      <span id="syncStatusText">
+       לא מחובר
+      </span>
+      <span class="grow">
+      </span>
+      <span class="small muted" id="lastSyncTime">
+      </span>
+     </div>
+     <div class="field">
+      <label>
+       כתובת Apps Script Web App
+      </label>
+      <input id="appsScript" placeholder="https://script.google.com/macros/s/.../exec" type="url"/>
+     </div>
+     <div class="field mt-10">
+      <label>
+       Google Sheets URL (אופציונלי, לתצוגה)
+      </label>
+      <input id="sheetsUrl" placeholder="https://docs.google.com/spreadsheets/..." type="url"/>
+     </div>
+     <div class="row mt-14 gap-8">
+      <button class="btn btn-primary grow u-admin-011" onclick="saveSettings('connection')">
+       <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z">
+        </path>
+        <polyline points="17 21 17 13 7 13 7 21">
+        </polyline>
+       </svg>
+       שמור והתחבר
+      </button>
+      <button class="btn btn-accent grow u-admin-012" onclick="syncNow()">
+       <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+        <polyline points="23 4 23 10 17 10">
+        </polyline>
+        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15">
+        </path>
+       </svg>
+       סנכרן עכשיו
+      </button>
+     </div>
+     <button class="btn btn-ghost mt-10 u-admin-013" onclick="showAppsScriptCode()">
+      <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+       <polyline points="16 18 22 12 16 6">
+       </polyline>
+       <polyline points="8 6 2 12 8 18">
+       </polyline>
+      </svg>
+      הצג קוד Apps Script להעתקה
+     </button>
+    </div>
+    <div class="card section">
+     <div class="form-section-title">
+      אוטומציית מייל (EmailJS)
+     </div>
+     <div class="small muted u-admin-014">
+      הנתונים מוטמעים בקוד באופן קבוע. כתובת השולח/היעד ניתנת לעדכון לפי הצורך.
+     </div>
+     <div class="field-row cols-2">
+      <div class="field">
+       <label>
+        Service ID
+       </label>
+       <input id="emailServiceId" placeholder="service_xxx" readonly="" type="text" value="service_3vbhllkb"/>
+      </div>
+      <div class="field">
+       <label>
+        Template ID
+       </label>
+       <input id="emailTemplateId" placeholder="template_xxx" readonly="" type="text" value="template_exkjfqt"/>
+      </div>
+     </div>
+     <div class="field mt-10">
+      <label>
+       Public Key
+      </label>
+      <input id="emailPublicKey" placeholder="xxxxxxxxxxxxxxx" type="text"/>
+     </div>
+     <div class="field mt-10">
+      <label>
+       שולח (אימייל)
+      </label>
+      <input id="reminderEmail" placeholder="example@gmail.com" type="email"/>
+     </div>
+     <div class="row mt-14 gap-8">
+      <button class="btn btn-accent grow u-admin-015" onclick="saveSettings('email')">
+       <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z">
+        </path>
+        <polyline points="17 21 17 13 7 13 7 21">
+        </polyline>
+       </svg>
+       שמור
+      </button>
+      <button class="btn btn-ghost grow u-admin-016" onclick="testEmail()">
+       <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+        <line x1="22" x2="11" y1="2" y2="13">
+        </line>
+        <polygon points="22 2 15 22 11 13 2 9 22 2">
+        </polygon>
+       </svg>
+       בדיקת מייל
+      </button>
+     </div>
+    </div>
+    <div class="card section">
+     <div class="form-section-title">
+      הנצחה
+     </div>
+     <div class="field-row cols-2">
+      <div class="field">
+       <label>
+        סכום ליום הנצחה ($)
+       </label>
+       <input id="dayAmount" min="0" placeholder="0" step="1" type="number"/>
+      </div>
+      <div class="field">
+       <label>
+        יעד (מספר ימים)
+       </label>
+       <input id="targetDays" min="0" placeholder="0" step="1" type="number"/>
+      </div>
+     </div>
+     <button class="btn btn-primary mt-14 u-admin-017" onclick="saveSettings('memorial')">
+      <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+       <polyline points="20 6 9 17 4 12">
+       </polyline>
+      </svg>
+      עדכן
+     </button>
+    </div>
+    <div class="card section">
+     <div class="form-section-title">
+      אודות
+     </div>
+     <div class="about-box">
+      <div class="about-title">
+       נציבי דעת אהרן · Smart Manager
+      </div>
+      <div class="about-version">
+       גרסה 6.0 · ניהול הנצחות מתקדם
+      </div>
+     </div>
+     <button class="btn btn-danger mt-14 u-admin-018" onclick="doLogout()">
+      <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+       <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4">
+       </path>
+       <polyline points="16 17 21 12 16 7">
+       </polyline>
+       <line x1="21" x2="9" y1="12" y2="12">
+       </line>
+      </svg>
+      התנתקות מהמערכת
+     </button>
+    </div>
+   </section>
+   <!-- NEW DONOR -->
+   <section class="page" id="page-new">
+    <div class="page-head">
+     <h2 class="page-title" id="newPageTitle">
+      תורם חדש
+     </h2>
+     <div class="page-actions u-admin-019" id="editPageActions">
+      <a class="btn btn-whatsapp btn-sm u-admin-020" href="#" id="editWaBtn" rel="noopener noreferrer" target="_blank">
+       <svg fill="currentColor" viewbox="0 0 24 24">
+        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0 0 20.464 3.488">
+        </path>
+       </svg>
+       WhatsApp
+      </a>
+      <a class="btn btn-ghost btn-sm u-admin-021" href="#" id="editMailBtn" onclick="return handleEmailClickForm(event)">
+       <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z">
+        </path>
+        <polyline points="22,6 12,13 2,6">
+        </polyline>
+       </svg>
+       מייל
+      </a>
+      <button class="btn btn-accent btn-sm" onclick="generateReceiptForCurrent()">
+       <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z">
+        </path>
+        <polyline points="14 2 14 8 20 8">
+        </polyline>
+       </svg>
+       קבלה
+      </button>
+     </div>
+    </div>
+    <form id="donorForm" onsubmit="saveDonor(event)">
+     <input id="donorId" type="hidden"/>
+     <div class="card section">
+      <div class="form-section-title">
+       פרטי תורם
+      </div>
+      <div class="field">
+       <label>
+        <span class="req">
+         *
+        </span>
+        שם מלא
+       </label>
+       <input id="fullName" placeholder="לדוגמה: יוסף כהן" required="" type="text"/>
+      </div>
+      <div class="field-row cols-2 mt-10">
+       <div class="field">
+        <label>
+         טלפון
+        </label>
+        <input id="phone" placeholder="050-0000000" type="tel"/>
+       </div>
+       <div class="field">
+        <label>
+         דוא״ל
+        </label>
+        <input id="email" placeholder="example@email.com" type="email"/>
+       </div>
+      </div>
+      <div class="field mt-10">
+       <label>
+        כתובת
+       </label>
+       <input id="address" placeholder="רחוב, עיר" type="text"/>
+      </div>
+      <div class="field mt-10">
+       <label>
+        קטגוריה
+       </label>
+       <select id="category">
+        <option value="">
+         בחר קטגוריה
+        </option>
+        <option value="תורם חדש">
+         תורם חדש
+        </option>
+        <option value="תלמידי הרב קפלן">
+         תלמידי הרב קפלן
+        </option>
+        <option value='ארה"ב'>
+         ארה"ב
+        </option>
+        <option value="ישראל">
+         ישראל
+        </option>
+        <option value="תורם מזדמן">
+         תורם מזדמן
+        </option>
+       </select>
+      </div>
+     </div>
+     <div class="card section">
+      <div class="form-section-title">
+       פרטי הנצחה
+      </div>
+      <div class="field-row cols-2">
+       <div class="field">
+        <label>
+         <span class="req">
+          *
+         </span>
+         תאריך עברי - יום
+        </label>
+        <input id="hebDay" max="30" min="1" placeholder="1-30" required="" type="number"/>
+       </div>
+       <div class="field">
+        <label>
+         חודש
+        </label>
+        <select id="hebMonth">
+         <option value="">
+          בחר חודש
+         </option>
+         <option>
+          תשרי
+         </option>
+         <option>
+          חשוון
+         </option>
+         <option>
+          כסלו
+         </option>
+         <option>
+          טבת
+         </option>
+         <option>
+          שבט
+         </option>
+         <option>
+          אדר
+         </option>
+         <option>
+          אדר א׳
+         </option>
+         <option>
+          אדר ב׳
+         </option>
+         <option>
+          ניסן
+         </option>
+         <option>
+          אייר
+         </option>
+         <option>
+          סיון
+         </option>
+         <option>
+          תמוז
+         </option>
+         <option>
+          אב
+         </option>
+         <option>
+          אלול
+         </option>
+        </select>
+       </div>
+      </div>
+      <div class="field mt-10">
+       <label>
+        <span class="req">
+         *
+        </span>
+        תוכן ההנצחה
+       </label>
+       <textarea id="memoryContent" placeholder="לעילוי נשמת..." required=""></textarea>
+      </div>
+      <div class="field mt-10">
+       <label>
+        שם הנפטר/ת
+       </label>
+       <input id="deceasedName" placeholder="שם מלא" type="text"/>
+      </div>
+     </div>
+     <div class="card section">
+      <div class="form-section-title">
+       תשלום
+      </div>
+      <div class="field">
+       <label>
+        סטטוס
+       </label>
+       <div class="status-pills" id="statusPills">
+        <button class="status-pill active" data-status="paid" onclick="setStatus('paid')" type="button">
+         שולם ✓
+        </button>
+        <button class="status-pill" data-status="pending" onclick="setStatus('pending')" type="button">
+         ממתין
+        </button>
+        <button class="status-pill" data-status="unpaid" onclick="setStatus('unpaid')" type="button">
+         לא שולם
+        </button>
+       </div>
+       <input id="status" type="hidden" value="paid"/>
+      </div>
+      <div class="field-row cols-2 mt-10">
+       <div class="field">
+        <label>
+         סכום ($)
+        </label>
+        <input id="amount" min="0" placeholder="0" step="1" type="number"/>
+       </div>
+       <div class="field">
+        <label>
+         תאריך תשלום
+        </label>
+        <input id="paymentDate" type="date"/>
+       </div>
+      </div>
+      <div class="field mt-10">
+       <label>
+        הערות
+       </label>
+       <textarea id="notes" placeholder="הערות נוספות..."></textarea>
+      </div>
+     </div>
+     <div class="form-actions">
+      <button class="btn btn-primary" type="submit">
+       <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z">
+        </path>
+        <polyline points="17 21 17 13 7 13 7 21">
+        </polyline>
+        <polyline points="7 3 7 8 15 8">
+        </polyline>
+       </svg>
+       שמור תורם
+      </button>
+      <button class="btn btn-danger" id="deleteBtn" onclick="deleteDonor()" type="button">
+       <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+        <polyline points="3 6 5 6 21 6">
+        </polyline>
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2">
+        </path>
+       </svg>
+       מחק תורם
+      </button>
+     </div>
+    </form>
+   </section>
+  </div>
+  <nav class="bottom-nav" id="bottomNav">
+   <button class="nav-item active" data-page="dashboard">
+    <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+     <rect height="9" width="7" x="3" y="3">
+     </rect>
+     <rect height="5" width="7" x="14" y="3">
+     </rect>
+     <rect height="9" width="7" x="14" y="12">
+     </rect>
+     <rect height="5" width="7" x="3" y="16">
+     </rect>
+    </svg>
+    דשבורד
+   </button>
+   <button class="nav-item" data-page="donors">
+    <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+     <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2">
+     </path>
+     <circle cx="9" cy="7" r="4">
+     </circle>
+    </svg>
+    תורמים
+   </button>
+   <button class="nav-item" data-page="reports">
+    <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+     <line x1="18" x2="18" y1="20" y2="10">
+     </line>
+     <line x1="12" x2="12" y1="20" y2="4">
+     </line>
+     <line x1="6" x2="6" y1="20" y2="14">
+     </line>
+    </svg>
+    דוחות
+   </button>
+   <button class="nav-item" data-page="actions">
+    <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+     <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2">
+     </polygon>
+    </svg>
+    פעולות
+   </button>
+   <button class="nav-item" data-page="settings">
+    <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+     <circle cx="12" cy="12" r="3">
+     </circle>
+    </svg>
+    הגדרות
+   </button>
+   <button class="nav-item" data-page="new">
+    <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" viewbox="0 0 24 24">
+     <line x1="12" x2="12" y1="5" y2="19">
+     </line>
+     <line x1="5" x2="19" y1="12" y2="12">
+     </line>
+    </svg>
+    חדש
+   </button>
+  </nav>
+  <script>
+   const HEB_MONTHS = ['תשרי','חשוון','כסלו','טבת','שבט','אדר','אדר א׳','אדר ב׳','ניסן','אייר','סיון','תמוז','אב','אלול'];
+  const ORG_NAME = 'נציבי דעת אהרן';
+  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxDR_PiR9H2qcYM35vARU2HsugG5ZkQ3_AdzuK-yHcf83bcmzHCshfhR-ElR5yR-do4Bg/exec';
+  const SPREADSHEET_URL = '';
+  const EMAILJS_SERVICE_ID = 'service_3vbhllkb';
+  const EMAILJS_TEMPLATE_ID = 'template_exkjfqt';
+  const EMAILJS_PUBLIC_KEY = 'eZ5_ZtLBP5wajfcsb';
+  const EMAILJS_SENDER_EMAIL = 'office@daasaharon.com';
+
+  let donors = [];
+  let settings = {
+    sheetsUrl: SPREADSHEET_URL, appsScript: APPS_SCRIPT_URL, reminderEmail: '',
+    emailServiceId: EMAILJS_SERVICE_ID, emailTemplateId: EMAILJS_TEMPLATE_ID, emailPublicKey: EMAILJS_PUBLIC_KEY,
+    dayAmount: 100, targetDays: 365, lastSync: null, receiptCounter: 1
+  };
+  let currentDashboardFilter = 'all';
+  let currentDonorsFilter = 'all';
+  let editingDonorId = null;
+
+  function loadData() {
+    try {
+      const d = localStorage.getItem('nda_donors');
+      const s = localStorage.getItem('nda_settings');
+      if (d) donors = JSON.parse(d);
+      if (s) settings = { ...settings, ...JSON.parse(s) };
+      // EmailJS is embedded as a fixed configuration so it stays active even if localStorage has old/blank values.
+      settings.emailServiceId = EMAILJS_SERVICE_ID;
+      settings.emailTemplateId = EMAILJS_TEMPLATE_ID;
+      settings.emailPublicKey = EMAILJS_PUBLIC_KEY;
+      if (!settings.reminderEmail) settings.reminderEmail = EMAILJS_SENDER_EMAIL;
+    } catch (e) { console.error(e); }
+  }
+  function saveData() {
+    localStorage.setItem('nda_donors', JSON.stringify(donors));
+    localStorage.setItem('nda_settings', JSON.stringify(settings));
+  }
+
+  function getAppsScriptUrl() {
+    return ((settings.appsScript || '').trim()) || APPS_SCRIPT_URL;
+  }
+
+  function getSpreadsheetUrl() {
+    return ((settings.sheetsUrl || '').trim()) || SPREADSHEET_URL;
+  }
+
+  function initializeConnectionDefaults() {
+    settings.appsScript = getAppsScriptUrl();
+    settings.sheetsUrl = getSpreadsheetUrl();
+    settings.emailServiceId = EMAILJS_SERVICE_ID;
+    settings.emailTemplateId = EMAILJS_TEMPLATE_ID;
+    settings.emailPublicKey = EMAILJS_PUBLIC_KEY;
+    if (!settings.reminderEmail) settings.reminderEmail = EMAILJS_SENDER_EMAIL;
+    saveData();
+  }
+
+  function heartbeatGoogleSheets(showSuccessToast = false) {
+    const url = getAppsScriptUrl();
+    if (!url) return Promise.resolve(false);
+
+    return fetch(url + '?action=heartbeat&t=' + Date.now(), { method: 'GET', cache: 'no-store' })
+      .then(res => {
+        if (!res.ok) throw new Error('Heartbeat failed: ' + res.status);
+        if (showSuccessToast) toast('Google Sheets מחובר', 'success');
+        updateSyncStatus(true);
+        return true;
+      })
+      .catch(err => {
+        console.warn('Google Sheets heartbeat failed', err);
+        updateSyncStatus(false);
+        if (showSuccessToast) toast('לא הצליח להתחבר ל-Google Sheets', 'error');
+        return false;
+      });
+  }
+
+  function toast(msg, type='') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast show ' + type;
+    setTimeout(() => t.classList.remove('show'), 2400);
+  }
+
+  function openModal(title, bodyHtml) {
+    document.getElementById('modalTitle').textContent = title;
+    document.getElementById('modalBody').innerHTML = bodyHtml;
+    document.getElementById('modal').classList.add('show');
+  }
+  function closeModal() { document.getElementById('modal').classList.remove('show'); }
+  function closeModalBg(e) { if (e.target.id === 'modal') closeModal(); }
+
+  function showPage(page) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    const target = document.getElementById('page-' + page);
+    if (target) target.classList.add('active');
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.page === page));
+    document.querySelectorAll('.nav-item').forEach(t => t.classList.toggle('active', t.dataset.page === page));
+    if (page === 'new' && !editingDonorId) resetForm();
+    if (page === 'dashboard') renderDashboard();
+    if (page === 'donors') renderAllDonors();
+    if (page === 'reports') renderReports();
+    if (page === 'settings') populateSettings();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  document.querySelectorAll('.tab, .nav-item').forEach(el => {
+    el.addEventListener('click', () => showPage(el.dataset.page));
+  });
+
+  function isoWeekStart(d = new Date()) {
+    const date = new Date(d);
+    date.setHours(0,0,0,0);
+    const day = date.getDay();
+    return new Date(date.setDate(date.getDate() - day));
+  }
+  function isThisWeek(dateStr) {
+    if (!dateStr) return false;
+    const d = new Date(dateStr);
+    if (isNaN(d)) return false;
+    const start = isoWeekStart();
+    const end = new Date(start); end.setDate(end.getDate() + 7);
+    return d >= start && d < end;
+  }
+  function daysSince(dateStr) {
+    if (!dateStr) return Infinity;
+    const d = new Date(dateStr);
+    if (isNaN(d)) return Infinity;
+    return Math.floor((Date.now() - d.getTime()) / 86400000);
+  }
+  function fmtMoney(n) { return Number(n || 0).toLocaleString('en-US'); }
+  // Currency-aware display helpers: Nedarim Plus donations are ILS, Banquest donations are USD.
+  function donorCurrency(d) {
+    d = d || {};
+    const raw = String(d.currency || d.paymentCurrency || d.currencyCode || d.currency_code || '').trim().toUpperCase();
+    if (raw === 'ILS' || raw === 'NIS' || raw === '1' || raw === '₪') return 'ILS';
+    if (raw === 'USD' || raw === '2' || raw === '$') return 'USD';
+    const marker = [
+      d.paymentProcessor, d.processor, d.gateway, d.notes, d.paymentStatus,
+      d.dedicationTypeLabel, d.category,
+      Array.isArray(d.categories) ? d.categories.join(' ') : d.categories
+    ].filter(Boolean).join(' ');
+    if (/נדרים|Nedarim/i.test(marker)) return 'ILS';
+    if (/נציב יום|נציב זהב|הקדשת שבוע|הקדשת חודש|יום מיוחד|סדרי לימוד|שיעור כללי|שיעור יומי|מסלול לייט/.test(marker)) return 'ILS';
+    return 'USD';
+  }
+  function currencySymbol(currency) { return currency === 'ILS' ? '₪' : '$'; }
+  function currencyWords(currency) { return currency === 'ILS' ? 'שקלים' : 'דולר ארה״ב'; }
+  function fmtAmount(amount, currency) { return currencySymbol(currency) + fmtMoney(amount); }
+  function fmtDonorMoney(d) { return fmtAmount(Number((d && d.amount) || 0), donorCurrency(d)); }
+  function fmtDonorMoneyWords(d) { const c = donorCurrency(d); return '(' + fmtMoney((d && d.amount) || 0) + ' ' + currencyWords(c) + ')'; }
+  function sumByCurrency(list) {
+    return (list || []).reduce((s, d) => {
+      const c = donorCurrency(d);
+      s[c] = (s[c] || 0) + Number((d && d.amount) || 0);
+      return s;
+    }, { USD: 0, ILS: 0 });
+  }
+  function formatCurrencySums(sums) {
+    sums = sums || { USD: 0, ILS: 0 };
+    const parts = [];
+    if (sums.ILS) parts.push(fmtAmount(sums.ILS, 'ILS'));
+    if (sums.USD) parts.push(fmtAmount(sums.USD, 'USD'));
+    return parts.length ? parts.join(' / ') : '$0';
+  }
+  function setHeroMoneyDisplay(sums) {
+    const small = document.querySelector('.hero-amount small');
+    const total = document.getElementById('totalRaised');
+    if (!small || !total) return;
+    sums = sums || { USD: 0, ILS: 0 };
+    if (sums.ILS && !sums.USD) { small.textContent = '₪'; total.textContent = fmtMoney(sums.ILS); }
+    else if (sums.USD && !sums.ILS) { small.textContent = '$'; total.textContent = fmtMoney(sums.USD); }
+    else if (sums.ILS || sums.USD) { small.textContent = ''; total.textContent = formatCurrencySums(sums); }
+    else { small.textContent = '$'; total.textContent = '0'; }
+  }
+
+  function initials(name) {
+    if (!name) return '?';
+    const parts = name.trim().split(/\s+/);
+    return (parts[0][0] || '') + (parts[1] ? parts[1][0] : '');
+  }
+  function statusLabel(s) { return s === 'paid' ? 'שולם' : s === 'pending' ? 'ממתין' : 'לא שולם'; }
+  function statusBadge(s) {
+    const cls = s === 'paid' ? 'badge-paid' : s === 'pending' ? 'badge-pending' : 'badge-unpaid';
+    return `<span class="badge ${cls}">${statusLabel(s)}</span>`;
+  }
+  function escapeHtml(str) {
+    return String(str || '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  }
+  function fmtDateHe(dateStr) {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr);
+    if (isNaN(d)) return '—';
+    return d.toLocaleDateString('he-IL', { day: 'numeric', month: 'long', year: 'numeric' });
+  }
+  function cleanPhone(phone) {
+    if (!phone) return '';
+    let p = String(phone).replace(/[\s\-()]/g, '');
+    if (p.startsWith('+')) return p.slice(1);
+    if (p.startsWith('00')) return p.slice(2);
+    if (p.startsWith('0')) return '972' + p.slice(1);
+    return p;
+  }
+
+  // Reliable file delivery: works in iframes (download attr blocked) and on iOS.
+  // target="_blank" makes the browser open in new tab when download is blocked,
+  // so the user can save from there via Share/long-press.
+  function triggerDownload(blob, filename) {
+    try {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        if (a.parentNode) a.parentNode.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 60000);
+      return true;
+    } catch (e) {
+      console.error('Download failed:', e);
+      return false;
+    }
+  }
+
+  // SVG icons
+  const SVG = {
+    wa: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0 0 20.464 3.488"/></svg>',
+    mail: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>',
+    pdf: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
+    edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
+    del: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>'
+  };
+
+  function donorRow(d) {
+    const memorial = [d.hebDay, d.hebMonth].filter(Boolean).join(' ב');
+    const sub = [memorial, d.category].filter(Boolean).join(' · ') || (d.deceasedName || '—');
+    const overdue = d.status !== 'paid' && daysSince(d.createdAt) > 30;
+    const text = encodeURIComponent(reminderText(d));
+    const subj = encodeURIComponent(reminderSubject());
+    const waUrl = d.phone ? `https://wa.me/${cleanPhone(d.phone)}?text=${text}` : '';
+    const mailUrl = d.email ? `mailto:${d.email}?subject=${subj}&body=${text}` : '';
+    return `
+      <div class="donor">
+        <div class="donor-avatar">${escapeHtml(initials(d.fullName))}</div>
+        <div class="donor-info">
+          <div class="donor-name">${escapeHtml(d.fullName)} ${statusBadge(d.status)}${overdue ? '<span class="badge badge-overdue">איחור 30+</span>' : ''}</div>
+          <div class="donor-sub">${escapeHtml(sub)}</div>
+        </div>
+        <div class="donor-amount">${fmtDonorMoney(d)}</div>
+        <div class="donor-actions">
+          ${d.phone ? `<a href="${waUrl}" target="_blank" rel="noopener noreferrer" class="act-wa" onclick="event.stopPropagation()" title="WhatsApp">${SVG.wa}</a>` : ''}
+          ${d.email ? `<a href="${mailUrl}" class="act-mail" onclick="return handleEmailClick(event,'${d.id}')" title="מייל">${SVG.mail}</a>` : ''}
+          <button class="act-pdf" onclick="event.stopPropagation();generateReceipt('${d.id}')" title="קבלה">${SVG.pdf}</button>
+          <button onclick="event.stopPropagation();editDonor('${d.id}')" title="ערוך">${SVG.edit}</button>
+          <button class="act-del" onclick="event.stopPropagation();quickDelete('${d.id}')" title="מחק">${SVG.del}</button>
+        </div>
+      </div>`;
+  }
+
+  function applyFilter(list, filter) {
+    if (filter === 'all') return list;
+    if (filter === 'paid') return list.filter(d => d.status === 'paid');
+    if (filter === 'pending') return list.filter(d => d.status === 'pending');
+    if (filter === 'unpaid') return list.filter(d => d.status === 'unpaid');
+    if (filter === 'overdue') return list.filter(d => d.status !== 'paid' && daysSince(d.createdAt) > 30);
+    if (filter === 'week') return list.filter(d => isThisWeek(d.paymentDate || d.createdAt));
+    if (filter.startsWith('cat:')) return list.filter(d => d.category === filter.slice(4));
+    return list;
+  }
+
+  function renderDashboard() {
+    const paidDonorsForTotal = donors.filter(d => d.status === 'paid');
+    paidDonorsForTotal.forEach(d => { if (!d.currency) d.currency = donorCurrency(d); });
+    const totalSums = sumByCurrency(paidDonorsForTotal);
+    const totalRaised = totalSums.USD + totalSums.ILS;
+    const target = Number(settings.targetDays||0) * Number(settings.dayAmount||0);
+    const pct = target > 0 ? Math.min(100, Math.round((totalRaised/target)*100)) : 0;
+
+    setHeroMoneyDisplay(totalSums);
+    document.getElementById('targetAmount').textContent = fmtMoney(target);
+    document.getElementById('percentRaised').textContent = pct;
+    document.getElementById('progressFill').style.width = pct + '%';
+
+    document.getElementById('statAll').textContent = donors.length;
+    document.getElementById('statPaid').textContent = donors.filter(d => d.status === 'paid').length;
+    document.getElementById('statPending').textContent = donors.filter(d => d.status === 'pending').length;
+    document.getElementById('statWeek').textContent = donors.filter(d => isThisWeek(d.paymentDate || d.createdAt)).length;
+
+    const weekDonors = donors.filter(d => isThisWeek(d.paymentDate || d.createdAt)).slice(0, 5);
+    const weekList = document.getElementById('weekList');
+    weekList.innerHTML = weekDonors.length === 0
+      ? `<div class="empty"><div class="empty-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>אין הנצחות השבוע</div>`
+      : `<div class="donor-list">${weekDonors.map(donorRow).join('')}</div>`;
+
+    renderChart();
+    renderDashboardList();
+  }
+
+  function applyDynamicStyles(root) {
+    (root || document).querySelectorAll('[data-height]').forEach(el => {
+      el.style.height = el.dataset.height + '%';
+    });
+    (root || document).querySelectorAll('[data-width]').forEach(el => {
+      el.style.width = el.dataset.width + '%';
+    });
+  }
+
+  function renderChart() {
+    const months = HEB_MONTHS.slice(0, 12);
+    const monthly = months.map(m => donors.filter(d => d.hebMonth === m && d.status === 'paid').reduce((s,d) => s + Number(d.amount||0), 0));
+    const max = Math.max(...monthly, 1);
+    document.getElementById('chart').innerHTML = monthly.map(v => `<div class="bar" data-height="${Math.max(4,(v/max)*100)}" data-amount="$${fmtMoney(v)}"></div>`).join('');
+    document.getElementById('chartLabels').innerHTML = months.map(m => `<span>${m}</span>`).join('');
+    applyDynamicStyles(document.getElementById('chart'));
+  }
+
+  function renderDashboardList() {
+    const filtered = applyFilter(donors, currentDashboardFilter);
+    const c = document.getElementById('dashboardDonorList');
+    c.innerHTML = filtered.length === 0 ? `<div class="empty">אין תוצאות להצגה</div>` : `<div class="donor-list">${filtered.slice(0,8).map(donorRow).join('')}</div>`;
+  }
+
+  // Advanced filters
+  function toggleAdvFilters() { document.getElementById('advFilterPanel').classList.toggle('open'); }
+  function resetAdvFilters() {
+    ['advAmountMin','advAmountMax','advDateFrom','advDateTo'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('advCategory').value = '';
+    document.getElementById('advHebMonth').value = '';
+    document.getElementById('advSort').value = 'recent';
+    renderAllDonors();
+  }
+  function getAdvFilters() {
+    return {
+      amountMin: parseFloat(document.getElementById('advAmountMin').value) || null,
+      amountMax: parseFloat(document.getElementById('advAmountMax').value) || null,
+      dateFrom: document.getElementById('advDateFrom').value || null,
+      dateTo: document.getElementById('advDateTo').value || null,
+      category: document.getElementById('advCategory').value || null,
+      hebMonth: document.getElementById('advHebMonth').value || null,
+      sort: document.getElementById('advSort').value
+    };
+  }
+  function hasActiveAdvFilters() {
+    const f = getAdvFilters();
+    return f.amountMin !== null || f.amountMax !== null || f.dateFrom || f.dateTo || f.category || f.hebMonth;
+  }
+
+  function renderAllDonors() {
+    const search = (document.getElementById('searchBox')?.value || '').trim().toLowerCase();
+    let list = applyFilter(donors, currentDonorsFilter);
+    if (search) {
+      list = list.filter(d =>
+        (d.fullName||'').toLowerCase().includes(search) ||
+        (d.category||'').toLowerCase().includes(search) ||
+        (d.deceasedName||'').toLowerCase().includes(search) ||
+        (d.phone||'').toLowerCase().includes(search) ||
+        (d.email||'').toLowerCase().includes(search)
+      );
+    }
+    const f = getAdvFilters();
+    if (f.amountMin !== null) list = list.filter(d => Number(d.amount||0) >= f.amountMin);
+    if (f.amountMax !== null) list = list.filter(d => Number(d.amount||0) <= f.amountMax);
+    if (f.dateFrom) list = list.filter(d => d.paymentDate && d.paymentDate >= f.dateFrom);
+    if (f.dateTo) list = list.filter(d => d.paymentDate && d.paymentDate <= f.dateTo);
+    if (f.category) list = list.filter(d => d.category === f.category);
+    if (f.hebMonth) list = list.filter(d => d.hebMonth === f.hebMonth);
+
+    if (f.sort === 'oldest') list.sort((a,b) => new Date(a.createdAt) - new Date(b.createdAt));
+    else if (f.sort === 'amount-desc') list.sort((a,b) => Number(b.amount||0) - Number(a.amount||0));
+    else if (f.sort === 'amount-asc') list.sort((a,b) => Number(a.amount||0) - Number(b.amount||0));
+    else if (f.sort === 'name') list.sort((a,b) => (a.fullName||'').localeCompare(b.fullName||'', 'he'));
+    else list.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    document.getElementById('filterDot').innerHTML = hasActiveAdvFilters() ? '<span class="filter-active-dot"></span>' : '';
+    document.getElementById('resultCount').textContent = `${list.length} תוצאות`;
+
+    const c = document.getElementById('allDonorList');
+    c.innerHTML = list.length === 0
+      ? `<div class="empty"><div class="empty-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>לא נמצאו תוצאות. נסה לשנות את הסינון.</div>`
+      : `<div class="donor-list">${list.map(donorRow).join('')}</div>`;
+  }
+
+  // REPORTS
+  function renderReports() {
+    const now = new Date();
+    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth()-1, 1);
+    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23,59,59,999);
+    const inRange = (d, s, e) => {
+      if (!d.paymentDate) return false;
+      const dt = new Date(d.paymentDate);
+      return dt >= s && dt <= e;
+    };
+
+    const thisMonth = donors.filter(d => d.status === 'paid' && d.paymentDate && new Date(d.paymentDate) >= thisMonthStart);
+    const lastMonth = donors.filter(d => d.status === 'paid' && inRange(d, lastMonthStart, lastMonthEnd));
+    const thisMonthSum = thisMonth.reduce((s,d) => s + Number(d.amount||0), 0);
+    const lastMonthSum = lastMonth.reduce((s,d) => s + Number(d.amount||0), 0);
+
+    document.getElementById('kpiThisMonth').textContent = '$' + fmtMoney(thisMonthSum);
+    const trendEl = document.getElementById('kpiThisMonthTrend');
+    if (lastMonthSum > 0) {
+      const pct = Math.round(((thisMonthSum - lastMonthSum) / lastMonthSum) * 100);
+      trendEl.innerHTML = pct >= 0 ? `<span class="trend-up">↑ ${pct}%</span> מהחודש שעבר` : `<span class="trend-down">↓ ${Math.abs(pct)}%</span> מהחודש שעבר`;
+    } else trendEl.textContent = thisMonthSum > 0 ? 'חודש חדש' : '';
+
+    const paid = donors.filter(d => d.status === 'paid');
+    const avg = paid.length ? paid.reduce((s,d) => s + Number(d.amount||0), 0) / paid.length : 0;
+    document.getElementById('kpiAvg').textContent = '$' + fmtMoney(Math.round(avg));
+
+    const overdue = donors.filter(d => d.status !== 'paid' && daysSince(d.createdAt) > 30);
+    document.getElementById('kpiOverdue').textContent = overdue.length;
+
+    const yearStart = new Date(now.getFullYear(), 0, 1);
+    const yearDonors = donors.filter(d => d.status === 'paid' && d.paymentDate && new Date(d.paymentDate) >= yearStart);
+    const counts = {};
+    yearDonors.forEach(d => { const n = (d.fullName||'').trim(); if (n) counts[n] = (counts[n]||0)+1; });
+    const repeat = Object.values(counts).filter(c => c >= 2).length;
+    const total = Object.keys(counts).length || 1;
+    document.getElementById('kpiRetention').textContent = Math.round((repeat/total)*100) + '%';
+
+    // Month compare
+    const maxC = Math.max(thisMonthSum, lastMonthSum, 1);
+    document.getElementById('monthCompare').innerHTML = `
+      <div class="hbar-list">
+        <div class="hbar"><div class="hbar-head"><span class="hbar-name">החודש</span><span class="hbar-val">$${fmtMoney(thisMonthSum)} · ${thisMonth.length} תרומות</span></div><div class="hbar-track"><div class="hbar-fill" data-width="${(thisMonthSum/maxC)*100}"></div></div></div>
+        <div class="hbar"><div class="hbar-head"><span class="hbar-name">חודש שעבר</span><span class="hbar-val">$${fmtMoney(lastMonthSum)} · ${lastMonth.length} תרומות</span></div><div class="hbar-track"><div class="hbar-fill is-muted" data-width="${(lastMonthSum/maxC)*100}"></div></div></div>
+      </div>`;
+
+    // Top donors
+    const totals = {};
+    paid.forEach(d => { const n = (d.fullName||'').trim(); if (n) totals[n] = (totals[n]||0) + Number(d.amount||0); });
+    const top = Object.entries(totals).sort((a,b) => b[1]-a[1]).slice(0,5);
+    const topEl = document.getElementById('topDonors');
+    if (top.length === 0) topEl.innerHTML = `<div class="empty">אין נתונים</div>`;
+    else {
+      const maxT = top[0][1];
+      topEl.innerHTML = `<div class="hbar-list">${top.map(([n,v],i) => `
+        <div class="hbar"><div class="hbar-head"><span class="hbar-name">${i+1}. ${escapeHtml(n)}</span><span class="hbar-val">$${fmtMoney(v)}</span></div><div class="hbar-track"><div class="hbar-fill" data-width="${(v/maxT)*100}"></div></div></div>
+      `).join('')}</div>`;
+    }
+
+    // Category averages
+    const cats = ['תורם חדש','תלמידי הרב קפלן','ארה"ב','ישראל','תורם מזדמן'];
+    const catData = cats.map(c => {
+      const d = paid.filter(x => x.category === c);
+      const sum = d.reduce((s,x) => s + Number(x.amount||0), 0);
+      return { cat: c, avg: d.length ? Math.round(sum/d.length) : 0, count: d.length };
+    }).filter(x => x.count > 0);
+    const catEl = document.getElementById('catAverage');
+    if (catData.length === 0) catEl.innerHTML = `<div class="empty">אין נתונים</div>`;
+    else {
+      const maxA = Math.max(...catData.map(x => x.avg));
+      catEl.innerHTML = `<div class="hbar-list">${catData.map(x => `
+        <div class="hbar"><div class="hbar-head"><span class="hbar-name">${escapeHtml(x.cat)}</span><span class="hbar-val">ממוצע $${fmtMoney(x.avg)} · ${x.count} תרומות</span></div><div class="hbar-track"><div class="hbar-fill" data-width="${(x.avg/maxA)*100}"></div></div></div>
+      `).join('')}</div>`;
+    }
+
+    // Overdue list
+    const overdueEl = document.getElementById('overdueList');
+    if (overdue.length === 0) overdueEl.innerHTML = `<div class="empty">אין איחורים — כל הכבוד! 🎉</div>`;
+    else overdueEl.innerHTML = `<div class="donor-list">${overdue.slice(0,10).map(d => {
+      const days = daysSince(d.createdAt);
+      const text = encodeURIComponent(reminderText(d));
+      const subj = encodeURIComponent(reminderSubject());
+      const waUrl = d.phone ? `https://wa.me/${cleanPhone(d.phone)}?text=${text}` : '';
+      const mailUrl = d.email ? `mailto:${d.email}?subject=${subj}&body=${text}` : '';
+      return `<div class="donor">
+        <div class="donor-avatar">${escapeHtml(initials(d.fullName))}</div>
+        <div class="donor-info">
+          <div class="donor-name">${escapeHtml(d.fullName)} <span class="badge badge-overdue">${days} יום</span></div>
+          <div class="donor-sub">${escapeHtml(d.category||'')} · ${fmtDonorMoney(d)}</div>
+        </div>
+        <div class="donor-actions">
+          ${d.phone ? `<a href="${waUrl}" target="_blank" rel="noopener noreferrer" class="act-wa" title="WhatsApp">${SVG.wa}</a>` : ''}
+          ${d.email ? `<a href="${mailUrl}" class="act-mail" onclick="return handleEmailClick(event,'${d.id}')" title="מייל">${SVG.mail}</a>` : ''}
+        </div>
+      </div>`;
+    }).join('')}</div>`;
+
+    // YoY chart
+    const months = ['ינו','פבר','מרץ','אפר','מאי','יוני','יולי','אוג','ספט','אוק','נוב','דצמ'];
+    const thisYearM = months.map((_, i) => {
+      const s = new Date(now.getFullYear(), i, 1), e = new Date(now.getFullYear(), i+1, 0, 23,59,59,999);
+      return paid.filter(d => inRange(d, s, e)).reduce((sum,d) => sum + Number(d.amount||0), 0);
+    });
+    const lastYearM = months.map((_, i) => {
+      const s = new Date(now.getFullYear()-1, i, 1), e = new Date(now.getFullYear()-1, i+1, 0, 23,59,59,999);
+      return donors.filter(d => d.status === 'paid' && inRange(d, s, e)).reduce((sum,d) => sum + Number(d.amount||0), 0);
+    });
+    const max = Math.max(...thisYearM, ...lastYearM, 1);
+    document.getElementById('yoyChart').innerHTML = thisYearM.map((v,i) => `<div class="bar" data-height="${Math.max(4,(v/max)*100)}" data-amount="השנה: $${fmtMoney(v)} | אשתקד: $${fmtMoney(lastYearM[i])}"></div>`).join('');
+    document.getElementById('yoyLabels').innerHTML = months.map(m => `<span>${m}</span>`).join('');
+    applyDynamicStyles(document.getElementById('page-reports'));
+  }
+
+  // FORM
+  function setStatus(s) {
+    document.getElementById('status').value = s;
+    document.querySelectorAll('#statusPills .status-pill').forEach(p => p.classList.toggle('active', p.dataset.status === s));
+  }
+  function resetForm() {
+    editingDonorId = null;
+    document.getElementById('newPageTitle').textContent = 'תורם חדש';
+    document.getElementById('donorForm').reset();
+    document.getElementById('donorId').value = '';
+    setStatus('paid');
+    document.getElementById('deleteBtn').style.display = 'none';
+    document.getElementById('editPageActions').style.display = 'none';
+  }
+  function editDonor(id) {
+    const d = donors.find(x => x.id === id);
+    if (!d) return;
+    editingDonorId = id;
+    document.getElementById('newPageTitle').textContent = 'עריכת תורם';
+    document.getElementById('donorId').value = d.id;
+    document.getElementById('fullName').value = d.fullName || '';
+    document.getElementById('phone').value = d.phone || '';
+    document.getElementById('email').value = d.email || '';
+    document.getElementById('address').value = d.address || '';
+    document.getElementById('category').value = d.category || '';
+    document.getElementById('hebDay').value = d.hebDay || '';
+    document.getElementById('hebMonth').value = d.hebMonth || '';
+    document.getElementById('memoryContent').value = d.memoryContent || '';
+    document.getElementById('deceasedName').value = d.deceasedName || '';
+    setStatus(d.status || 'paid');
+    document.getElementById('amount').value = d.amount || '';
+    document.getElementById('paymentDate').value = d.paymentDate || '';
+    document.getElementById('notes').value = d.notes || '';
+    document.getElementById('deleteBtn').style.display = 'inline-flex';
+    document.getElementById('editPageActions').style.display = 'flex';
+    // Update edit page action anchor hrefs
+    const waBtn = document.getElementById('editWaBtn');
+    const mailBtn = document.getElementById('editMailBtn');
+    const text = encodeURIComponent(reminderText(d));
+    const subj = encodeURIComponent(reminderSubject());
+    if (waBtn) {
+      if (d.phone) {
+        waBtn.href = `https://wa.me/${cleanPhone(d.phone)}?text=${text}`;
+        waBtn.style.display = 'inline-flex';
+      } else waBtn.style.display = 'none';
+    }
+    if (mailBtn) {
+      if (d.email) {
+        mailBtn.href = `mailto:${d.email}?subject=${subj}&body=${text}`;
+        mailBtn.style.display = 'inline-flex';
+      } else mailBtn.style.display = 'none';
+    }
+    showPage('new');
+  }
+  function saveDonor(e) {
+    e.preventDefault();
+    const id = document.getElementById('donorId').value || ('d_' + Date.now() + '_' + Math.random().toString(36).slice(2,7));
+    const data = {
+      id,
+      fullName: document.getElementById('fullName').value.trim(),
+      phone: document.getElementById('phone').value.trim(),
+      email: document.getElementById('email').value.trim(),
+      address: document.getElementById('address').value.trim(),
+      category: document.getElementById('category').value,
+      hebDay: document.getElementById('hebDay').value,
+      hebMonth: document.getElementById('hebMonth').value,
+      memoryContent: document.getElementById('memoryContent').value.trim(),
+      deceasedName: document.getElementById('deceasedName').value.trim(),
+      status: document.getElementById('status').value || 'paid',
+      amount: Number(document.getElementById('amount').value) || 0,
+      paymentDate: document.getElementById('paymentDate').value,
+      notes: document.getElementById('notes').value.trim(),
+      createdAt: new Date().toISOString()
+    };
+    const existing = donors.findIndex(d => d.id === id);
+    if (existing >= 0) {
+      data.createdAt = donors[existing].createdAt;
+      donors[existing] = data;
+      toast('התורם עודכן בהצלחה', 'success');
+    } else {
+      donors.unshift(data);
+      toast('התורם נוסף בהצלחה', 'success');
+    }
+    saveData();
+    resetForm();
+    showPage('dashboard');
+  }
+  function deleteDonor() {
+    const id = document.getElementById('donorId').value;
+    if (!id) { resetForm(); showPage('dashboard'); return; }
+    if (!confirm('האם למחוק את התורם?')) return;
+    donors = donors.filter(d => d.id !== id);
+    saveData();
+    toast('התורם נמחק', 'error');
+    resetForm();
+    showPage('dashboard');
+  }
+  function quickDelete(id) {
+    if (!confirm('האם למחוק את התורם?')) return;
+    donors = donors.filter(d => d.id !== id);
+    saveData();
+    toast('התורם נמחק', 'error');
+    renderDashboard();
+    renderAllDonors();
+  }
+
+  // SETTINGS
+  function populateSettings() {
+    const sheetsEl = document.getElementById('sheetsUrl');
+    const appsEl = document.getElementById('appsScript');
+
+    if (sheetsEl) sheetsEl.value = getSpreadsheetUrl();
+    if (appsEl) appsEl.value = getAppsScriptUrl();
+
+    document.getElementById('reminderEmail').value = settings.reminderEmail || EMAILJS_SENDER_EMAIL;
+    document.getElementById('emailServiceId').value = EMAILJS_SERVICE_ID;
+    document.getElementById('emailTemplateId').value = EMAILJS_TEMPLATE_ID;
+    document.getElementById('emailPublicKey').value = EMAILJS_PUBLIC_KEY;
+    ['emailServiceId','emailTemplateId','emailPublicKey'].forEach(id => { const el = document.getElementById(id); if (el) el.readOnly = true; });
+    document.getElementById('dayAmount').value = settings.dayAmount || '';
+    document.getElementById('targetDays').value = settings.targetDays || '';
+    updateSyncStatus();
+  }
+
+  function updateSyncStatus(isConnected) {
+    const el = document.getElementById('syncStatus');
+    const txt = document.getElementById('syncStatusText');
+    const last = document.getElementById('lastSyncTime');
+    if (!el || !txt || !last) return;
+
+    const hasUrl = !!getAppsScriptUrl();
+    const connected = typeof isConnected === 'boolean' ? isConnected : hasUrl;
+
+    if (connected) {
+      el.classList.add('connected');
+      txt.textContent = 'מחובר אוטומטית ל-Google Sheets';
+    } else {
+      el.classList.remove('connected');
+      txt.textContent = 'לא מחובר';
+    }
+
+    last.textContent = settings.lastSync
+      ? 'סנכרון אחרון: ' + new Date(settings.lastSync).toLocaleString('he-IL')
+      : (hasUrl ? 'מוכן לסנכרון' : '');
+  }
+
+  function saveSettings(section) {
+    if (section === 'connection') {
+      const sheetsEl = document.getElementById('sheetsUrl');
+      const appsEl = document.getElementById('appsScript');
+
+      settings.sheetsUrl = (sheetsEl && sheetsEl.value.trim()) || SPREADSHEET_URL;
+      settings.appsScript = (appsEl && appsEl.value.trim()) || APPS_SCRIPT_URL;
+
+      saveData();
+      updateSyncStatus();
+      heartbeatGoogleSheets(true);
+      toast('החיבור נשמר', 'success');
+    } else if (section === 'email') {
+      settings.reminderEmail = document.getElementById('reminderEmail').value.trim() || EMAILJS_SENDER_EMAIL;
+      settings.emailServiceId = EMAILJS_SERVICE_ID;
+      settings.emailTemplateId = EMAILJS_TEMPLATE_ID;
+      settings.emailPublicKey = EMAILJS_PUBLIC_KEY;
+      saveData();
+      if (settings.emailPublicKey && window.emailjs) {
+        try { emailjs.init({ publicKey: settings.emailPublicKey }); } catch(e) {}
+      }
+      toast('הגדרות המייל נשמרו', 'success');
+    } else if (section === 'memorial') {
+      settings.dayAmount = Number(document.getElementById('dayAmount').value) || 0;
+      settings.targetDays = Number(document.getElementById('targetDays').value) || 0;
+      saveData();
+      toast('ההגדרות עודכנו', 'success');
+      renderDashboard();
+    }
+  }
+
+  // APPS SCRIPT CODE
+  function showAppsScriptCode() {
+    const code = `// ===== Apps Script · נציבי דעת אהרן =====
+// תומך בדשבורד וגם בדף התרומות הציבורי.
+// 1. פתח Google Sheet חדש
+// 2. תפריט: Extensions -> Apps Script
+// 3. מחק הכל והדבק את הקוד הזה
+// 4. Deploy -> New deployment -> Web app
+// 5. Execute as: Me · Who has access: Anyone
+// 6. ה-URL כבר מוטמע באתר; אפשר להשאיר את שדה ההגדרות ריק
+
+const SHEET_NAME = 'Donors';
+const HEADERS = ['id','fullName','phone','email','address','category',
+  'hebDay','hebMonth','memoryContent','deceasedName','status',
+  'amount','currency','paymentProcessor','paymentStatus','paymentApproved','chargedAmount','orderRef',
+  'paymentDate','notes','createdAt'];
+
+function doGet(e) {
+  const action = e && e.parameter && e.parameter.action;
+  if (action === 'heartbeat') return json({ success: true, connected: true, time: new Date().toISOString() });
+  const sheet = getSheet();
+  const data = sheet.getDataRange().getValues();
+  if (data.length < 2) return json({ donors: [] });
+  const headers = data[0];
+  const donors = data.slice(1).map(function(row) {
+    const obj = {};
+    headers.forEach(function(h, i) { obj[h] = row[i]; });
+    return obj;
+  });
+  return json({ donors: donors });
+}
+
+function doPost(e) {
+  const sheet = getSheet();
+  if (sheet.getLastRow() === 0) sheet.appendRow(HEADERS);
+  const body = JSON.parse(e.postData.contents);
+
+  // הוספת רשומה בודדת - משמש את דף התרומות הציבורי
+  if (body.action === 'add' && body.donor) {
+    sheet.appendRow(HEADERS.map(function(h){ return body.donor[h] || ''; }));
+    return json({ success: true, added: 1 });
+  }
+
+  // סנכרון מלא (עדכון לפי id, ללא מחיקה) - משמש את הדשבורד
+  const donors = body.donors || [];
+  const data = sheet.getDataRange().getValues();
+  const rowById = {};
+  for (var i = 1; i < data.length; i++) rowById[data[i][0]] = i + 1;
+  donors.forEach(function(d) {
+    const row = HEADERS.map(function(h){ return d[h] || ''; });
+    if (rowById[d.id]) {
+      sheet.getRange(rowById[d.id], 1, 1, HEADERS.length).setValues([row]);
+    } else {
+      sheet.appendRow(row);
+    }
+  });
+  return json({ success: true, synced: donors.length });
+}
+
+function getSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(SHEET_NAME);
+  if (!sheet) { sheet = ss.insertSheet(SHEET_NAME); sheet.appendRow(HEADERS); }
+  return sheet;
+}
+
+function json(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}`;
+    const html = `
+      <p class="small muted js-mb-12">העתק את הקוד הבא ל-Google Apps Script שלך:</p>
+      <div class="code-block" id="codeBlock">${escapeHtml(code)}</div>
+      <button class="btn btn-primary mt-14 js-full-center" onclick="copyCode()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        העתק ללוח
+      </button>`;
+    openModal('קוד Apps Script', html);
+    window._appsScriptCode = code;
+  }
+  function copyCode() {
+    navigator.clipboard.writeText(window._appsScriptCode).then(() => toast('הקוד הועתק', 'success'));
+  }
+
+  // SYNC
+  
+  async function syncNow() {
+    const url = getAppsScriptUrl();
+
+    if (!url) {
+      toast('כתובת Apps Script חסרה', 'error');
+      showPage('settings');
+      return;
+    }
+
+    toast('מסנכרן...');
+    try {
+      await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'sync', donors })
+      });
+
+      const pull = await fetch(url + '?action=get&t=' + Date.now(), {
+        method: 'GET',
+        cache: 'no-store'
+      });
+
+      if (pull.ok) {
+        const data = await pull.json();
+        if (data && Array.isArray(data.donors)) {
+          const remoteIds = new Set(data.donors.map(x => x.id));
+          const merged = [...data.donors];
+          donors.forEach(d => { if (!remoteIds.has(d.id)) merged.push(d); });
+          donors = merged;
+        }
+      }
+
+      settings.appsScript = url;
+      settings.sheetsUrl = getSpreadsheetUrl();
+      settings.lastSync = new Date().toISOString();
+
+      saveData();
+      updateSyncStatus(true);
+      renderDashboard();
+      renderAllDonors();
+
+      toast('הסנכרון הושלם', 'success');
+    } catch (err) {
+      console.error(err);
+      updateSyncStatus(false);
+      toast('שגיאה בסנכרון - בדוק את פריסת ה-Apps Script', 'error');
+    }
+  }
+
+  // MESSAGING - WhatsApp + mailto are now real <a> links in donor rows.
+  // Email via EmailJS (programmatic) handled here.
+  function sendEmailViaEmailJS(id) {
+    const d = donors.find(x => x.id === id);
+    if (!d || !d.email) return;
+    if (!settings.emailServiceId || !settings.emailTemplateId || !settings.emailPublicKey || !window.emailjs) return;
+    try { emailjs.init({ publicKey: settings.emailPublicKey }); } catch(e) {}
+    toast('שולח מייל...');
+    emailjs.send(settings.emailServiceId, settings.emailTemplateId, {
+      to_email: d.email, to_name: d.fullName, message: reminderText(d),
+      subject: reminderSubject(), amount: fmtDonorMoney(d),
+      deceased: d.deceasedName || d.memoryContent || ''
+    }).then(() => toast('המייל נשלח בהצלחה', 'success'))
+      .catch(err => { console.error(err); toast('שגיאה: ' + (err.text || err.message || 'בדוק הגדרות'), 'error'); });
+  }
+  // Returns false to prevent mailto: navigation when EmailJS is configured (we send programmatically instead)
+  function handleEmailClick(event, id) {
+    event.stopPropagation();
+    if (settings.emailServiceId && settings.emailTemplateId && settings.emailPublicKey && window.emailjs) {
+      event.preventDefault();
+      sendEmailViaEmailJS(id);
+      return false;
+    }
+    return true; // let the mailto: link work as a fallback
+  }
+  function handleEmailClickForm(event) {
+    if (!editingDonorId) { event.preventDefault(); return false; }
+    if (settings.emailServiceId && settings.emailTemplateId && settings.emailPublicKey && window.emailjs) {
+      event.preventDefault();
+      sendEmailViaEmailJS(editingDonorId);
+      return false;
+    }
+    return true;
+  }
+  function reminderText(donor) {
+    const memorial = [donor.hebDay, donor.hebMonth].filter(Boolean).join(' ב');
+    return `שלום ${donor.fullName || ''},\n\nתזכורת חביבה מ${ORG_NAME}.\n\nההנצחה לעילוי נשמת ${donor.deceasedName || donor.memoryContent || ''}${memorial ? ' (' + memorial + ')' : ''} ממתינה להשלמת התרומה בסך ${fmtDonorMoney(donor)}.\n\nתודה רבה וישר כח!\n${ORG_NAME}`;
+  }
+  function reminderSubject() { return `תזכורת תרומה · ${ORG_NAME}`; }
+
+  function bulkRemind() {
+    const targets = donors.filter(d => (d.status === 'pending' || d.status === 'unpaid') && (d.email || d.phone));
+    if (targets.length === 0) { toast('אין למי לשלוח תזכורת', ''); return; }
+    const hasEmail = settings.emailServiceId && settings.emailTemplateId && settings.emailPublicKey && window.emailjs;
+    if (hasEmail) {
+      const emailTargets = targets.filter(d => d.email);
+      if (!confirm(`לשלוח מיילים אוטומטית ל-${emailTargets.length} תורמים דרך EmailJS?`)) return;
+      try { emailjs.init({ publicKey: settings.emailPublicKey }); } catch(e) {}
+      let sent = 0, failed = 0;
+      toast(`שולח ${emailTargets.length} מיילים...`);
+      emailTargets.forEach((d, i) => {
+        setTimeout(() => {
+          emailjs.send(settings.emailServiceId, settings.emailTemplateId, {
+            to_email: d.email, to_name: d.fullName, message: reminderText(d),
+            subject: reminderSubject(), amount: fmtDonorMoney(d),
+            deceased: d.deceasedName || ''
+          }).then(() => { sent++; if (sent + failed === emailTargets.length) toast(`נשלחו ${sent} מיילים${failed ? ` (${failed} נכשלו)` : ''}`, sent ? 'success' : 'error'); })
+            .catch(() => { failed++; if (sent + failed === emailTargets.length) toast(`נשלחו ${sent} (${failed} נכשלו)`, 'error'); });
+        }, i * 300);
+      });
+    } else {
+      // Show modal with WhatsApp/mailto links — user taps each one
+      const html = `
+        <p class="small js-mb-14-line">
+          לחץ על אייקון ה-WhatsApp או המייל לכל תורם כדי לשלוח תזכורת. ${targets.length} תורמים ממתינים.
+        </p>
+        <div class="donor-list">
+          ${targets.map(d => {
+            const text = encodeURIComponent(reminderText(d));
+            const subj = encodeURIComponent(reminderSubject());
+            const waUrl = d.phone ? `https://wa.me/${cleanPhone(d.phone)}?text=${text}` : '';
+            const mailUrl = d.email ? `mailto:${d.email}?subject=${subj}&body=${text}` : '';
+            return `<div class="donor">
+              <div class="donor-avatar">${escapeHtml(initials(d.fullName))}</div>
+              <div class="donor-info">
+                <div class="donor-name">${escapeHtml(d.fullName)} ${statusBadge(d.status)}</div>
+                <div class="donor-sub">${fmtDonorMoney(d)} · ${escapeHtml(d.category||'')}</div>
+              </div>
+              <div class="donor-actions">
+                ${waUrl ? `<a href="${waUrl}" target="_blank" rel="noopener noreferrer" class="act-wa" title="WhatsApp">${SVG.wa}</a>` : ''}
+                ${mailUrl ? `<a href="${mailUrl}" class="act-mail" title="מייל">${SVG.mail}</a>` : ''}
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+        <p class="small muted mt-14">💡 לשליחה אוטומטית בלחיצה אחת — הגדר EmailJS בעמוד ההגדרות.</p>
+      `;
+      openModal('שלח תזכורות (' + targets.length + ')', html);
+    }
+  }
+  function testEmail() {
+    if (!settings.emailServiceId || !settings.emailTemplateId || !settings.emailPublicKey) {
+      toast('הגדר Service ID, Template ID ו-Public Key תחילה', 'error'); return;
+    }
+    const to = prompt('שלח מייל בדיקה לכתובת:', settings.reminderEmail || '');
+    if (!to) return;
+    try { emailjs.init({ publicKey: settings.emailPublicKey }); } catch(e) {}
+    emailjs.send(settings.emailServiceId, settings.emailTemplateId, {
+      to_email: to, to_name: 'בודק', message: 'מייל בדיקה מ-Smart Manager',
+      subject: 'בדיקת מייל · ' + ORG_NAME, amount: '$0', deceased: '—'
+    }).then(() => toast('המייל נשלח לבדיקה', 'success'))
+      .catch(err => { console.error(err); toast('שגיאה: ' + (err.text || 'בדוק את ה-IDs'), 'error'); });
+  }
+
+  // PDF RECEIPT - shows in modal with image preview + download anchor
+  function generateReceipt(id) {
+    const d = donors.find(x => x.id === id);
+    if (!d) return;
+    const num = String(settings.receiptCounter || 1).padStart(4, '0');
+    settings.receiptCounter = (settings.receiptCounter || 1) + 1;
+    saveData();
+
+    document.getElementById('rNumber').textContent = num;
+    document.getElementById('rDate').textContent = fmtDateHe(d.paymentDate || new Date().toISOString());
+    document.getElementById('rCategory').textContent = d.category || '—';
+    document.getElementById('rDonorName').textContent = d.fullName || '—';
+    document.getElementById('rDonorAddress').textContent = d.address || '—';
+    document.getElementById('rAmount').textContent = fmtDonorMoney(d);
+    document.getElementById('rAmountWords').textContent = fmtDonorMoneyWords(d);
+    const rAmountIcon = document.querySelector('.r-amount-icon'); if (rAmountIcon) rAmountIcon.textContent = currencySymbol(donorCurrency(d));
+    const memorial = [d.hebDay, d.hebMonth].filter(Boolean).join(' ב');
+    document.getElementById('rPurpose').textContent = (d.memoryContent || ('לעילוי נשמת ' + (d.deceasedName||''))) + (memorial ? ' · ' + memorial : '');
+
+    // Show modal immediately with loading state
+    openModal('קבלה #' + num, '<div class="js-modal-loading"><div class="small muted">⏳ יוצר קבלה...</div></div>');
+
+    const node = document.getElementById('receipt');
+    html2canvas(node, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false }).then(canvas => {
+      const imgUrl = canvas.toDataURL('image/png');
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const ratio = canvas.height / canvas.width;
+      let w = pageW - 20;
+      let h = w * ratio;
+      if (h > pageH - 20) { h = pageH - 20; w = h / ratio; }
+      pdf.addImage(imgUrl, 'PNG', (pageW - w) / 2, 10, w, h);
+      const blob = pdf.output('blob');
+      const blobUrl = URL.createObjectURL(blob);
+      const filename = `receipt_${num}_${(d.fullName || 'donor').replace(/\s/g, '_')}.pdf`;
+
+      const html = `
+        <p class="small js-mb-12-line">
+          הקבלה מוכנה. לחץ על הכפתור הירוק כדי לפתוח/לשמור את ה-PDF.
+        </p>
+        <a href="${blobUrl}" target="_blank" rel="noopener noreferrer" download="${escapeHtml(filename)}" class="btn btn-accent js-download-primary">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          פתח / שמור PDF
+        </a>
+        <a href="${imgUrl}" target="_blank" rel="noopener noreferrer" download="receipt_${num}.png" class="btn btn-ghost js-download-secondary">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          שמור כתמונה (PNG)
+        </a>
+        <details>
+          <summary class="small muted js-summary-toggle">📷 תצוגה מקדימה של הקבלה (לצילום מסך)</summary>
+          <div class="js-preview-box">
+            <img src="${imgUrl}" class="file-preview-img" alt="קבלה" />
+          </div>
+        </details>
+       
+      `;
+      document.getElementById('modalTitle').textContent = 'קבלה #' + num + ' מוכנה';
+      document.getElementById('modalBody').innerHTML = html;
+      toast('הקבלה מוכנה', 'success');
+    }).catch(err => {
+      console.error(err);
+      document.getElementById('modalBody').innerHTML = `<div class="empty">שגיאה ביצירת הקבלה: ${escapeHtml(err.message || String(err))}</div>`;
+      toast('שגיאה ביצירת הקבלה', 'error');
+    });
+  }
+  function generateReceiptForCurrent() { if (editingDonorId) generateReceipt(editingDonorId); }
+
+  // QUICK ACTIONS
+  function showWeekMemorials() {
+    showPage('dashboard');
+    setTimeout(() => {
+      document.querySelectorAll('#filterChips .chip').forEach(c => c.classList.toggle('active', c.dataset.filter === 'week'));
+      currentDashboardFilter = 'week';
+      renderDashboardList();
+      const el = document.getElementById('weekList');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 200);
+  }
+  function backupJSON() {
+    const data = JSON.stringify({ donors, settings, exported: new Date().toISOString() }, null, 2);
+    const blob = new Blob([data], { type: 'application/json' });
+    const filename = `backup_${new Date().toISOString().slice(0,10)}.json`;
+    showFileViewer(blob, filename, data, 'גיבוי JSON');
+  }
+  function exportOverdue() {
+    const overdue = donors.filter(d => d.status !== 'paid' && daysSince(d.createdAt) > 30);
+    if (overdue.length === 0) { toast('אין איחורים', ''); return; }
+    exportCSVList(overdue, `overdue_${new Date().toISOString().slice(0,10)}.csv`);
+  }
+  function exportCSV() { exportCSVList(donors, `donors_${new Date().toISOString().slice(0,10)}.csv`); }
+  function exportCSVList(list, filename) {
+    if (list.length === 0) { toast('אין נתונים לייצוא', ''); return; }
+    const headers = ['שם מלא','טלפון','דוא״ל','כתובת','קטגוריה','יום עברי','חודש עברי','תוכן ההנצחה','שם הנפטר/ת','סטטוס','סכום','תאריך תשלום','הערות'];
+    const rows = list.map(d => [d.fullName,d.phone,d.email,d.address,d.category,d.hebDay,d.hebMonth,d.memoryContent,d.deceasedName,statusLabel(d.status),d.amount,d.paymentDate,d.notes]);
+    const csv = [headers, ...rows].map(row => row.map(cell => `"${String(cell || '').replace(/"/g,'""')}"`).join(',')).join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    showFileViewer(blob, filename, csv, 'ייצוא CSV (' + list.length + ' שורות)');
+  }
+
+  // Universal file viewer modal - works in iframes where <a download> is blocked
+  function showFileViewer(blob, filename, textContent, title) {
+    const blobUrl = URL.createObjectURL(blob);
+    const sizeKb = (blob.size / 1024).toFixed(1);
+    const html = `
+      <p class="small js-mb-12-line">
+        הקובץ <strong>${escapeHtml(filename)}</strong> מוכן (${sizeKb} KB).
+      </p>
+      <a href="${blobUrl}" target="_blank" rel="noopener noreferrer" download="${escapeHtml(filename)}" class="btn btn-accent js-download-primary">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        פתח / שמור קובץ
+      </a>
+      <p class="small muted js-mb-6">או העתק את התוכן ישירות:</p>
+      <textarea id="fileViewerText" readonly class="file-text-area">${escapeHtml(textContent)}</textarea>
+      <button class="btn btn-ghost mt-10 js-full-center" onclick="copyFileViewerText()">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        העתק את התוכן ללוח
+      </button>
+      <p class="small muted mt-14 js-line-16">
+        💡 אם הכפתור הירוק לא מוריד בתוך אפליקציית Claude — פתח את האתר בדפדפן Safari/Chrome ההורדה תעבוד שם רגיל. לחילופין, השתמש בכפתור ההעתקה והדבק לכל מקום.
+      </p>
+    `;
+    openModal(title || filename, html);
+  }
+  function copyFileViewerText() {
+    const t = document.getElementById('fileViewerText');
+    if (!t) return;
+    t.select();
+    t.setSelectionRange(0, 99999);
+    try {
+      navigator.clipboard.writeText(t.value).then(
+        () => toast('הועתק ללוח בהצלחה', 'success'),
+        () => { document.execCommand('copy'); toast('הועתק ללוח', 'success'); }
+      );
+    } catch (e) {
+      try { document.execCommand('copy'); toast('הועתק ללוח', 'success'); }
+      catch (e2) { toast('לא ניתן להעתיק - בחר ידנית והעתק', 'error'); }
+    }
+  }
+
+  function wireChips(containerId, setter, onChange) {
+    const root = document.getElementById(containerId);
+    if (!root) return;
+    root.querySelectorAll('.chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        root.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        setter(chip.dataset.filter);
+        onChange();
+      });
+    });
+  }
+
+  
+  // ===== AUTH - basic client-side access gate =====
+  // Note: client-side only. Prevents casual access; not a substitute for real
+  // server auth. Credentials are base64-encoded (light obfuscation, not encryption).
+  const _AU = atob('REFhZG1pbg==');      // username -> DAadmin
+  const _AP = atob('ZGFhZG1pbjIwMjY=');  // password
+  function isAuthed() {
+    try { return localStorage.getItem('nda_session') === 'ok'; } catch (e) { return false; }
+  }
+  function togglePass() {
+    const p = document.getElementById('loginPass');
+    const b = document.getElementById('passToggleBtn');
+    if (p.type === 'password') { p.type = 'text'; if (b) b.textContent = 'הסתר'; }
+    else { p.type = 'password'; if (b) b.textContent = 'הצג'; }
+  }
+  function doLogin(e) {
+    e.preventDefault();
+    // trim both - mobile keyboards / autofill can add trailing spaces
+    const u = (document.getElementById('loginUser').value || '').trim();
+    const p = (document.getElementById('loginPass').value || '').trim();
+    // username case-insensitive (mobile auto-capitalize), password exact
+    const valid = (u.toLowerCase() === _AU.toLowerCase() && p === _AP);
+    if (valid) {
+      try { localStorage.setItem('nda_session', 'ok'); } catch (err) {}
+      document.getElementById('loginError').classList.remove('show');
+      document.getElementById('loginPass').value = '';
+      document.body.classList.remove('locked');
+      initApp();
+      toast('ברוך הבא!', 'success');
+    } else {
+      document.getElementById('loginError').classList.add('show');
+    }
+  }
+  function doLogout() {
+    if (!confirm('להתנתק מהמערכת?')) return;
+    try { localStorage.removeItem('nda_session'); } catch (e) {}
+    document.body.classList.add('locked');
+    const u = document.getElementById('loginUser'); if (u) u.value = '';
+    const p = document.getElementById('loginPass'); if (p) p.value = '';
+    window.scrollTo(0, 0);
+  }
+
+  // ===== INIT =====
+  let _appInited = false;
+  function initApp() {
+    if (_appInited) { renderDashboard(); return; }
+    _appInited = true;
+    loadData();
+    initializeConnectionDefaults();
+    wireChips('filterChips', v => currentDashboardFilter = v, renderDashboardList);
+    wireChips('donorFilterChips', v => currentDonorsFilter = v, renderAllDonors);
+    if (settings.emailPublicKey && window.emailjs) {
+      try { emailjs.init({ publicKey: settings.emailPublicKey }); } catch(e) {}
+    }
+    renderDashboard();
+    populateSettings();
+    setTimeout(() => heartbeatGoogleSheets(false), 800);
+  }
+
+  if (isAuthed()) {
+    document.body.classList.remove('locked');
+    initApp();
+  }
+  </script>
+  <script>
+   /* ===== WORKING FIX PATCH 2026-05-25 ===== */
+(function(){
+  const EXTRA_CATS = ['הורים','בוגר הישיבה','תלמידי הרב קפלן ארץ ישראל'];
+  const BASE_CATS = ['תורם חדש','תלמידי הרב קפלן','ארה"ב','ישראל','תורם מזדמן'];
+  const ALL_CATS = Array.from(new Set(BASE_CATS.concat(EXTRA_CATS)));
+  const HEB_DAYS = ['','א׳','ב׳','ג׳','ד׳','ה׳','ו׳','ז׳','ח׳','ט׳','י׳','י״א','י״ב','י״ג','י״ד','ט״ו','ט״ז','י״ז','י״ח','י״ט','כ׳','כ״א','כ״ב','כ״ג','כ״ד','כ״ה','כ״ו','כ״ז','כ״ח','כ״ט','ל׳'];
+  const imgIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>';
+  const sendIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>';
+  window.ndaHebDayText = function(v){ const n=parseInt(v,10); return HEB_DAYS[n] || (v||''); };
+  function catsOf(d){
+    let arr=[];
+    if(Array.isArray(d.categories)) arr=d.categories.filter(Boolean);
+    else if(typeof d.category==='string' && d.category.trim()) arr=d.category.split(',').map(s=>s.trim()).filter(Boolean);
+    if(d.dedicationTypeLabel && !arr.includes(d.dedicationTypeLabel)) arr.push(d.dedicationTypeLabel);
+    return Array.from(new Set(arr));
+  }
+  window.ndaCatsText = function(d){ return catsOf(d).join(', '); };
+  function normalizeDonor(d){
+    if(!Array.isArray(d.categories)) d.categories = catsOf(d);
+    d.category = catsOf(d).join(', ');
+    return d;
+  }
+  function convertHebDayInput(){
+    ['hebDay'].forEach(id=>{
+      const old=document.getElementById(id); if(!old || old.tagName==='SELECT') return;
+      const sel=document.createElement('select'); sel.id=old.id; sel.required=old.required; sel.className=old.className;
+      sel.innerHTML='<option value="">בחר יום</option>'+HEB_DAYS.slice(1).map((t,i)=>`<option value="${i+1}">${t}</option>`).join('');
+      sel.value=old.value||''; old.replaceWith(sel);
+    });
+  }
+  function upgradeCategoryField(){
+    const sel=document.getElementById('category'); if(!sel || document.getElementById('categoryChecks')) return;
+    sel.style.display='none'; sel.removeAttribute('required');
+    const wrap=document.createElement('div'); wrap.id='categoryChecks'; wrap.className='category-checks';
+    wrap.innerHTML=ALL_CATS.map(c=>`<label><input type="checkbox" value="${escapeHtml(c)}"/> ${escapeHtml(c)}</label>`).join('')+'<div class="multi-cat-note">אפשר לבחור כמה קטגוריות במקביל.</div>';
+    sel.insertAdjacentElement('afterend',wrap);
+    const adv=document.getElementById('advCategory'); if(adv){ EXTRA_CATS.forEach(c=>{ if(![...adv.options].some(o=>o.value===c)){ const o=document.createElement('option'); o.value=c; o.textContent=c; adv.appendChild(o); } }); }
+  }
+  window.ndaGetSelectedCategories=function(){ return [...document.querySelectorAll('#categoryChecks input:checked')].map(x=>x.value); };
+  window.ndaSetSelectedCategories=function(list){
+    upgradeCategoryField(); const set=new Set(Array.isArray(list)?list:(list?[String(list)]:[]));
+    document.querySelectorAll('#categoryChecks input').forEach(x=>x.checked=set.has(x.value));
+    const sel=document.getElementById('category'); if(sel) sel.value=[...set][0]||'';
+  };
+  function installSettings(){
+    const emailBox=document.getElementById('reminderEmail');
+    if(emailBox && !document.getElementById('weeklyReportEmail')){
+      emailBox.closest('.field').insertAdjacentHTML('afterend','<div class="field mt-10"><label>כתובת לקבלת דוח שבועי PDF</label><input type="email" id="weeklyReportEmail" placeholder="office@example.com" /></div>');
+      document.getElementById('weeklyReportEmail').value=(settings&&settings.weeklyReportEmail)||'';
+    }
+    const quick=document.querySelector('#page-dashboard .quick-actions');
+    if(quick && !document.getElementById('weeklyReportBtn')){
+      quick.insertAdjacentHTML('beforeend','<button id="weeklyReportBtn" class="action-card" onclick="sendWeeklyReportEmail()"><div class="action-card-icon">'+(SVG&&SVG.pdf?SVG.pdf:'📄')+'</div><div class="action-card-label">שליחת דוח שבועי PDF</div></button>');
+    }
+  }
+  const oldLoadSettings = typeof loadSettingsToForm==='function' ? loadSettingsToForm : null;
+  window.loadSettingsToForm = function(){ if(oldLoadSettings) oldLoadSettings(); installSettings(); const el=document.getElementById('weeklyReportEmail'); if(el) el.value=settings.weeklyReportEmail||''; };
+  const oldSaveSettings = typeof saveSettings==='function' ? saveSettings : null;
+  window.saveSettings = function(section){
+    const wr=document.getElementById('weeklyReportEmail'); if(wr) settings.weeklyReportEmail=wr.value.trim();
+    if(oldSaveSettings) return oldSaveSettings(section);
+    saveData(); toast('נשמר','success');
+  };
+  const oldSaveData = typeof saveData==='function' ? saveData : null;
+  window.saveData=function(){ donors.forEach(normalizeDonor); if(oldSaveData) return oldSaveData(); localStorage.setItem('nda_donors',JSON.stringify(donors)); localStorage.setItem('nda_settings',JSON.stringify(settings)); };
+
+  window.donorRow = function(d){
+    normalizeDonor(d);
+    const memorial = [ndaHebDayText(d.hebDay), d.hebMonth].filter(Boolean).join(' ב');
+    const catText = ndaCatsText(d);
+    const sub = [memorial, catText].filter(Boolean).join(' · ') || (d.deceasedName || '—');
+    const overdue = d.status !== 'paid' && daysSince(d.createdAt) > 30;
+    const text = encodeURIComponent(reminderText(d));
+    const subj = encodeURIComponent(reminderSubject());
+    const waUrl = d.phone ? `https://wa.me/${cleanPhone(d.phone)}?text=${text}` : '';
+    const mailUrl = d.email ? `mailto:${d.email}?subject=${subj}&body=${text}` : '';
+    const safeId=String(d.id).replace(/'/g,'\\\'');
+    return `<div class="donor"><div class="donor-avatar">${escapeHtml(initials(d.fullName))}</div><div class="donor-info"><div class="donor-name"><span class="name-click" onclick="event.stopPropagation();showDonorDetails('${safeId}')">${escapeHtml(d.fullName||'—')}</span> ${statusBadge(d.status)}${overdue?'<span class="badge badge-overdue">איחור 30+</span>':''}</div><div class="donor-sub">${escapeHtml(sub)}</div></div><div class="donor-amount">${fmtDonorMoney(d)}</div><div class="donor-actions">${d.phone?`<a href="${waUrl}" target="_blank" rel="noopener noreferrer" class="act-wa" onclick="event.stopPropagation()" title="WhatsApp">${SVG.wa}</a>`:''}${d.email?`<a href="${mailUrl}" class="act-mail" onclick="return handleEmailClick(event,'${safeId}')" title="מייל">${SVG.mail}</a>`:''}<button class="act-img" onclick="event.stopPropagation();uploadPlaqueImage('${safeId}')" title="העלאת תמונת לוח הנצחה">${imgIcon}</button><button class="act-send" onclick="event.stopPropagation();sendDedicationDayEmail('${safeId}')" title="שליחת מייל יום ההנצחה">${sendIcon}</button><button class="act-pdf" onclick="event.stopPropagation();generateReceipt('${safeId}')" title="קבלה">${SVG.pdf}</button><button onclick="event.stopPropagation();editDonor('${safeId}')" title="ערוך">${SVG.edit}</button><button class="act-del" onclick="event.stopPropagation();quickDelete('${safeId}')" title="מחק">${SVG.del}</button></div></div>`;
+  };
+  window.applyFilter=function(list,filter){
+    if(filter==='all') return list;
+    if(filter==='paid') return list.filter(d=>d.status==='paid');
+    if(filter==='pending') return list.filter(d=>d.status==='pending');
+    if(filter==='unpaid') return list.filter(d=>d.status==='unpaid');
+    if(filter==='overdue') return list.filter(d=>d.status!=='paid' && daysSince(d.createdAt)>30);
+    if(filter==='week') return list.filter(d=>isThisWeek(d.paymentDate || d.createdAt));
+    if(filter && filter.startsWith('cat:')) return list.filter(d=>catsOf(d).includes(filter.slice(4)));
+    return list;
+  };
+  const oldRenderAll = typeof renderAllDonors==='function' ? renderAllDonors : null;
+  window.renderAllDonors=function(){
+    donors.forEach(normalizeDonor);
+    const search=(document.getElementById('searchBox')?.value||'').trim().toLowerCase();
+    let list=applyFilter(donors,currentDonorsFilter);
+    if(search){list=list.filter(d=>(d.fullName||'').toLowerCase().includes(search)||(ndaCatsText(d)||'').toLowerCase().includes(search)||(d.deceasedName||'').toLowerCase().includes(search)||(d.phone||'').toLowerCase().includes(search)||(d.email||'').toLowerCase().includes(search));}
+    const f=getAdvFilters();
+    if(f.amountMin!==null) list=list.filter(d=>Number(d.amount||0)>=f.amountMin);
+    if(f.amountMax!==null) list=list.filter(d=>Number(d.amount||0)<=f.amountMax);
+    if(f.dateFrom) list=list.filter(d=>d.paymentDate && d.paymentDate>=f.dateFrom);
+    if(f.dateTo) list=list.filter(d=>d.paymentDate && d.paymentDate<=f.dateTo);
+    if(f.category) list=list.filter(d=>catsOf(d).includes(f.category));
+    if(f.hebMonth) list=list.filter(d=>d.hebMonth===f.hebMonth);
+    if(f.sort==='oldest') list.sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt));
+    else if(f.sort==='amount-desc') list.sort((a,b)=>Number(b.amount||0)-Number(a.amount||0));
+    else if(f.sort==='amount-asc') list.sort((a,b)=>Number(a.amount||0)-Number(b.amount||0));
+    else if(f.sort==='name') list.sort((a,b)=>(a.fullName||'').localeCompare(b.fullName||'','he'));
+    else list.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+    const fd=document.getElementById('filterDot'); if(fd) fd.innerHTML=hasActiveAdvFilters()?'<span class="filter-active-dot"></span>':'';
+    const rc=document.getElementById('resultCount'); if(rc) rc.textContent=`${list.length} תוצאות`;
+    const c=document.getElementById('allDonorList'); if(c) c.innerHTML=list.length===0?`<div class="empty">לא נמצאו תוצאות. נסה לשנות את הסינון.</div>`:`<div class="donor-list">${list.map(donorRow).join('')}</div>`;
+  };
+  const oldEdit=typeof editDonor==='function'?editDonor:null;
+  window.editDonor=function(id){
+    if(oldEdit) oldEdit(id);
+    const d=donors.find(x=>x.id===id); if(!d) return;
+    setTimeout(()=>{ convertHebDayInput(); upgradeCategoryField(); document.getElementById('hebDay').value=d.hebDay||''; ndaSetSelectedCategories(catsOf(d)); },0);
+  };
+  const oldReset=typeof resetForm==='function'?resetForm:null;
+  window.resetForm=function(){ if(oldReset) oldReset(); convertHebDayInput(); upgradeCategoryField(); ndaSetSelectedCategories([]); };
+  window.saveDonor=function(e){
+    e.preventDefault();
+    const id=document.getElementById('donorId').value || ('d_'+Date.now()+'_'+Math.random().toString(36).slice(2,7));
+    const cats=ndaGetSelectedCategories();
+    const old=donors.find(x=>x.id===id)||{};
+    const data={...old,id,fullName:document.getElementById('fullName').value.trim(),phone:document.getElementById('phone').value.trim(),email:document.getElementById('email').value.trim(),address:document.getElementById('address').value.trim(),categories:cats,category:cats.join(', '),hebDay:document.getElementById('hebDay').value,hebMonth:document.getElementById('hebMonth').value,memoryContent:document.getElementById('memoryContent').value.trim(),deceasedName:document.getElementById('deceasedName').value.trim(),status:document.getElementById('status').value||'paid',amount:Number(document.getElementById('amount').value)||0,paymentDate:document.getElementById('paymentDate').value,notes:document.getElementById('notes').value.trim(),createdAt:old.createdAt||new Date().toISOString()};
+    const existing=donors.findIndex(d=>d.id===id); if(existing>=0){donors[existing]=data; toast('התורם עודכן בהצלחה','success');}else{donors.unshift(data); toast('התורם נוסף בהצלחה','success');}
+    saveData(); resetForm(); showPage('dashboard');
+  };
+  window.showDonorDetails=function(id){
+    const d=donors.find(x=>x.id===id); if(!d) return; normalizeDonor(d);
+    const date=[ndaHebDayText(d.hebDay),d.hebMonth].filter(Boolean).join(' ב')||'—';
+    const html=`<div class="details-grid"><div class="detail-box"><div class="detail-label">שם התורם</div><div class="detail-val">${escapeHtml(d.fullName||'—')}</div></div><div class="detail-box"><div class="detail-label">סכום</div><div class="detail-val">${fmtDonorMoney(d)}</div></div><div class="detail-box"><div class="detail-label">קטגוריות</div><div class="detail-val">${escapeHtml(ndaCatsText(d)||'—')}</div></div><div class="detail-box"><div class="detail-label">סוג הנצחה</div><div class="detail-val">${escapeHtml(d.dedicationTypeLabel||d.category||'—')}</div></div><div class="detail-box"><div class="detail-label">תאריך הנצחה</div><div class="detail-val">${escapeHtml(date)}</div></div><div class="detail-box"><div class="detail-label">סטטוס</div><div class="detail-val">${statusBadge(d.status)}</div></div><div class="detail-box"><div class="detail-label">טלפון</div><div class="detail-val">${escapeHtml(d.phone||'—')}</div></div><div class="detail-box"><div class="detail-label">דוא״ל</div><div class="detail-val">${escapeHtml(d.email||'—')}</div></div></div><div class="detail-box mt-14"><div class="detail-label">נוסח הנצחה</div><div class="detail-val">${escapeHtml(d.memoryContent||d.deceasedName||'—')}</div></div>${d.plaqueImage?`<img class="plaque-preview" src="${d.plaqueImage}" alt="לוח הנצחה">`:''}<div class="row gap-8 mt-14"><button class="btn btn-primary" onclick="closeModal();editDonor('${id}')">עריכה</button><button class="btn btn-accent" onclick="sendDedicationDayEmail('${id}')">שליחת מייל יום ההנצחה</button></div>`;
+    openModal('פרטי הנצחה ותרומה',html);
+  };
+  window.uploadPlaqueImage=function(id){
+    const input=document.createElement('input'); input.type='file'; input.accept='image/*';
+    input.onchange=()=>{ const file=input.files&&input.files[0]; if(!file) return; const r=new FileReader(); r.onload=()=>{ const d=donors.find(x=>x.id===id); if(!d) return; d.plaqueImage=r.result; saveData(); toast('תמונת לוח ההנצחה נשמרה','success'); renderDashboard(); renderAllDonors(); }; r.readAsDataURL(file); };
+    input.click();
+  };
+  window.dedicationDayMessage=function(d){ const date=[ndaHebDayText(d.hebDay),d.hebMonth].filter(Boolean).join(' ב'); return `שלום ${d.fullName||''},\n\nהיום התקיימה ההנצחה ב${ORG_NAME}${date?' בתאריך '+date:''}.\n\nבפועל התקיימו: לימוד תורה לעילוי נשמת ${d.deceasedName||''}, אמירת נוסח ההנצחה, וציון ההקדשה בפני הלומדים.\n\nמצורפת תמונת לוח ההנצחה.\n\nתודה רבה על שותפותכם בהרבצת התורה.\n${ORG_NAME}`; };
+  window.sendDedicationDayEmail=function(id){
+    const d=donors.find(x=>x.id===id); if(!d||!d.email){toast('אין כתובת מייל לתורם','error'); return;}
+    const msg=dedicationDayMessage(d);
+    if(settings.emailServiceId&&settings.emailTemplateId&&settings.emailPublicKey&&window.emailjs){ try{emailjs.init({publicKey:settings.emailPublicKey});}catch(e){} toast('שולח מייל לתורם...'); emailjs.send(settings.emailServiceId,settings.emailTemplateId,{to_email:d.email,to_name:d.fullName,subject:'עדכון יום ההנצחה · '+ORG_NAME,message:msg,plaque_image:d.plaqueImage||'',image_url:d.plaqueImage||'',deceased:d.deceasedName||'',dedication_date:[ndaHebDayText(d.hebDay),d.hebMonth].filter(Boolean).join(' ב')}).then(()=>toast('המייל נשלח בהצלחה','success')).catch(err=>{console.error(err);toast('שגיאה בשליחת המייל','error');}); }
+    else { window.location.href=`mailto:${encodeURIComponent(d.email)}?subject=${encodeURIComponent('עדכון יום ההנצחה · '+ORG_NAME)}&body=${encodeURIComponent(msg + (d.plaqueImage?'\n\nתמונת הלוח שמורה במערכת; לשליחה אוטומטית יש להגדיר EmailJS.':''))}`; }
+  };
+  function upcomingWeekDonors(){ const now=new Date(), end=new Date(); end.setDate(now.getDate()+7); return donors.filter(d=>{ const dt=d.paymentDate||d.createdAt; if(!dt) return false; const x=new Date(dt); return x>=now && x<=end; }); }
+  window.sendWeeklyReportEmail=function(){
+    const to=(document.getElementById('weeklyReportEmail')?.value||settings.weeklyReportEmail||settings.reminderEmail||'').trim(); if(!to){toast('הכנס כתובת לקבלת דוח שבועי בהגדרות','error'); showPage('settings'); return;}
+    settings.weeklyReportEmail=to; saveData(); const list=upcomingWeekDonors();
+    let node=document.getElementById('weeklyReportSource'); if(!node){node=document.createElement('div'); node.id='weeklyReportSource'; node.className='weekly-report-source'; document.body.appendChild(node);} 
+    node.innerHTML=`<h1>דוח הנצחות השבוע הקרוב</h1><div>נוצר בתאריך ${new Date().toLocaleDateString('he-IL')}</div><table><thead><tr><th>תורם</th><th>תאריך</th><th>לעילוי נשמת</th><th>קטגוריות</th><th>סכום</th><th>סטטוס</th></tr></thead><tbody>${list.map(d=>`<tr><td>${escapeHtml(d.fullName||'')}</td><td>${escapeHtml([ndaHebDayText(d.hebDay),d.hebMonth].filter(Boolean).join(' ב'))}</td><td>${escapeHtml(d.deceasedName||d.memoryContent||'')}</td><td>${escapeHtml(ndaCatsText(d))}</td><td>${fmtDonorMoney(d)}</td><td>${escapeHtml(d.status||'')}</td></tr>`).join('') || '<tr><td colspan="6">אין הנצחות לשבוע הקרוב לפי התאריכים במערכת.</td></tr>'}</tbody></table>`;
+    if(!settings.emailServiceId||!settings.emailTemplateId||!settings.emailPublicKey||!window.emailjs){toast('כדי לשלוח PDF אוטומטית יש להגדיר EmailJS','error'); return;}
+    toast('יוצר PDF ושולח מייל...');
+    html2canvas(node,{scale:2,backgroundColor:'#fff'}).then(canvas=>{ const {jsPDF}=window.jspdf; const pdf=new jsPDF({orientation:'p',unit:'mm',format:'a4'}); const img=canvas.toDataURL('image/png'); const pageW=pdf.internal.pageSize.getWidth(); const w=pageW-14; const h=canvas.height/canvas.width*w; pdf.addImage(img,'PNG',7,7,w,Math.min(h,280)); const dataUri=pdf.output('datauristring'); try{emailjs.init({publicKey:settings.emailPublicKey});}catch(e){} return emailjs.send(settings.emailServiceId,settings.emailTemplateId,{to_email:to,to_name:'מנהל המערכת',subject:'דוח הנצחות השבוע הקרוב',message:'מצורף/מצורף כנתון PDF דוח ההנצחות לשבוע הקרוב.',pdf_data_url:dataUri,pdf_base64:dataUri.split(',')[1],report_html:node.innerHTML}); }).then(()=>toast('דוח PDF נשלח בהצלחה','success')).catch(err=>{console.error(err);toast('שגיאה בשליחת הדוח. בדוק תבנית EmailJS','error');});
+  };
+  const oldReceipt=typeof generateReceipt==='function'?generateReceipt:null;
+  // Init
+  document.addEventListener('DOMContentLoaded',()=>{ donors.forEach(normalizeDonor); convertHebDayInput(); upgradeCategoryField(); installSettings(); if(typeof renderDashboard==='function') renderDashboard(); });
+})();
+  </script>
+
+  <script>
+  /* ===== Currency display patch: Nedarim Plus = ILS, Banquest = USD ===== */
+  (function(){
+    const previousNormalizeDonor = typeof window.normalizeDonor === 'function' ? window.normalizeDonor : null;
+    window.normalizeDonor = function(d){
+      if (previousNormalizeDonor) previousNormalizeDonor(d);
+      if (d && !d.currency) d.currency = donorCurrency(d);
+      return d;
+    };
+
+    const previousRenderChart = typeof window.renderChart === 'function' ? window.renderChart : null;
+    window.renderChart = function(){
+      const months = HEB_MONTHS.slice(0, 12);
+      const monthDonors = months.map(m => donors.filter(d => d.hebMonth === m && d.status === 'paid'));
+      const monthlyRaw = monthDonors.map(list => list.reduce((s,d) => s + Number(d.amount||0), 0));
+      const max = Math.max(...monthlyRaw, 1);
+      const chart = document.getElementById('chart');
+      const labels = document.getElementById('chartLabels');
+      if (chart) chart.innerHTML = monthDonors.map((list, i) => `<div class="bar" data-height="${Math.max(4,(monthlyRaw[i]/max)*100)}" data-amount="${formatCurrencySums(sumByCurrency(list))}"></div>`).join('');
+      if (labels) labels.innerHTML = months.map(m => `<span>${m}</span>`).join('');
+      if (typeof applyDynamicStyles === 'function' && chart) applyDynamicStyles(chart);
+    };
+
+    const previousRenderDashboard = typeof window.renderDashboard === 'function' ? window.renderDashboard : null;
+    window.renderDashboard = function(){
+      donors.forEach(d => { if (!d.currency) d.currency = donorCurrency(d); });
+      if (previousRenderDashboard) previousRenderDashboard();
+      const paid = donors.filter(d => d.status === 'paid');
+      setHeroMoneyDisplay(sumByCurrency(paid));
+      if (typeof window.renderChart === 'function') window.renderChart();
+      if (typeof window.renderDashboardList === 'function') window.renderDashboardList();
+    };
+
+    const previousRenderReports = typeof window.renderReports === 'function' ? window.renderReports : null;
+    window.renderReports = function(){
+      if (previousRenderReports) previousRenderReports();
+      donors.forEach(d => { if (!d.currency) d.currency = donorCurrency(d); });
+      const now = new Date();
+      const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const lastMonthStart = new Date(now.getFullYear(), now.getMonth()-1, 1);
+      const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23,59,59,999);
+      const inRange = (d, s, e) => { if (!d.paymentDate) return false; const dt = new Date(d.paymentDate); return dt >= s && dt <= e; };
+      const thisMonth = donors.filter(d => d.status === 'paid' && d.paymentDate && new Date(d.paymentDate) >= thisMonthStart);
+      const lastMonth = donors.filter(d => d.status === 'paid' && inRange(d, lastMonthStart, lastMonthEnd));
+      const paid = donors.filter(d => d.status === 'paid');
+      const kpiThis = document.getElementById('kpiThisMonth'); if (kpiThis) kpiThis.textContent = formatCurrencySums(sumByCurrency(thisMonth));
+      const kpiAvg = document.getElementById('kpiAvg');
+      if (kpiAvg) {
+        const ils = paid.filter(d => donorCurrency(d)==='ILS');
+        const usd = paid.filter(d => donorCurrency(d)==='USD');
+        const parts = [];
+        if (ils.length) parts.push(fmtAmount(Math.round(sumByCurrency(ils).ILS / ils.length), 'ILS'));
+        if (usd.length) parts.push(fmtAmount(Math.round(sumByCurrency(usd).USD / usd.length), 'USD'));
+        kpiAvg.textContent = parts.join(' / ') || '$0';
+      }
+      const monthCompare = document.getElementById('monthCompare');
+      if (monthCompare) {
+        const thisRaw = thisMonth.reduce((s,d)=>s+Number(d.amount||0),0);
+        const lastRaw = lastMonth.reduce((s,d)=>s+Number(d.amount||0),0);
+        const maxC = Math.max(thisRaw,lastRaw,1);
+        monthCompare.innerHTML = `<div class="hbar-list"><div class="hbar"><div class="hbar-head"><span class="hbar-name">החודש</span><span class="hbar-val">${formatCurrencySums(sumByCurrency(thisMonth))} · ${thisMonth.length} תרומות</span></div><div class="hbar-track"><div class="hbar-fill" data-width="${(thisRaw/maxC)*100}"></div></div></div><div class="hbar"><div class="hbar-head"><span class="hbar-name">חודש שעבר</span><span class="hbar-val">${formatCurrencySums(sumByCurrency(lastMonth))} · ${lastMonth.length} תרומות</span></div><div class="hbar-track"><div class="hbar-fill is-muted" data-width="${(lastRaw/maxC)*100}"></div></div></div></div>`;
+      }
+      if (typeof applyDynamicStyles === 'function') applyDynamicStyles(document.getElementById('page-reports'));
+    };
+
+    const previousShowDonorDetails = typeof window.showDonorDetails === 'function' ? window.showDonorDetails : null;
+    window.showDonorDetails = function(id){
+      if (previousShowDonorDetails) previousShowDonorDetails(id);
+      const d = donors.find(x => x.id === id);
+      if (!d) return;
+      setTimeout(() => {
+        document.querySelectorAll('#modalBody .detail-box').forEach(box => {
+          const label = box.querySelector('.detail-label');
+          const val = box.querySelector('.detail-val');
+          if (label && val && label.textContent.trim() === 'סכום') val.textContent = fmtDonorMoney(d);
+        });
+      }, 0);
+    };
+
+    window.reminderText = function(donor) {
+      const memorial = [donor.hebDay, donor.hebMonth].filter(Boolean).join(' ב');
+      return `שלום ${donor.fullName || ''},\n\nתזכורת חביבה מ${ORG_NAME}.\n\nההנצחה לעילוי נשמת ${donor.deceasedName || donor.memoryContent || ''}${memorial ? ' (' + memorial + ')' : ''} ממתינה להשלמת התרומה בסך ${fmtDonorMoney(donor)}.\n\nתודה רבה וישר כח!\n${ORG_NAME}`;
+    };
+
+    const previousSendEmailViaEmailJS = typeof window.sendEmailViaEmailJS === 'function' ? window.sendEmailViaEmailJS : null;
+    window.sendEmailViaEmailJS = function(id) {
+      const d = donors.find(x => x.id === id);
+      if (!d || !d.email) return;
+      if (!settings.emailServiceId || !settings.emailTemplateId || !settings.emailPublicKey || !window.emailjs) return;
+      try { emailjs.init({ publicKey: settings.emailPublicKey }); } catch(e) {}
+      toast('שולח מייל...');
+      emailjs.send(settings.emailServiceId, settings.emailTemplateId, {
+        to_email: d.email, to_name: d.fullName, message: reminderText(d),
+        subject: reminderSubject(), amount: fmtDonorMoney(d),
+        deceased: d.deceasedName || d.memoryContent || ''
+      }).then(() => toast('המייל נשלח בהצלחה', 'success'))
+        .catch(err => { console.error(err); toast('שגיאה: ' + (err.text || err.message || 'בדוק הגדרות'), 'error'); });
+    };
+
+    const previousGenerateReceipt = typeof window.generateReceipt === 'function' ? window.generateReceipt : null;
+    window.generateReceipt = function(id) {
+      const d = donors.find(x => x.id === id);
+      if (!d) return;
+      const currency = donorCurrency(d);
+      const num = String(settings.receiptCounter || 1).padStart(4, '0');
+      settings.receiptCounter = (settings.receiptCounter || 1) + 1;
+      saveData();
+      document.getElementById('rNumber').textContent = num;
+      document.getElementById('rDate').textContent = fmtDateHe(d.paymentDate || new Date().toISOString());
+      document.getElementById('rCategory').textContent = d.category || '—';
+      document.getElementById('rDonorName').textContent = d.fullName || '—';
+      document.getElementById('rDonorAddress').textContent = d.address || '—';
+      document.getElementById('rAmount').textContent = fmtDonorMoney(d);
+      document.getElementById('rAmountWords').textContent = fmtDonorMoneyWords(d);
+      const rAmountIcon = document.querySelector('.r-amount-icon'); if (rAmountIcon) rAmountIcon.textContent = currencySymbol(currency);
+      const memorial = [d.hebDay, d.hebMonth].filter(Boolean).join(' ב');
+      document.getElementById('rPurpose').textContent = (d.memoryContent || ('לעילוי נשמת ' + (d.deceasedName||''))) + (memorial ? ' · ' + memorial : '');
+      openModal('קבלה #' + num, '<div class="js-modal-loading"><div class="small muted">⏳ יוצר קבלה...</div></div>');
+      const node = document.getElementById('receipt');
+      html2canvas(node, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false }).then(canvas => {
+        const imgUrl = canvas.toDataURL('image/png');
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+        const pageW = pdf.internal.pageSize.getWidth();
+        const pageH = pdf.internal.pageSize.getHeight();
+        const ratio = canvas.height / canvas.width;
+        let w = pageW - 20;
+        let h = w * ratio;
+        if (h > pageH - 20) { h = pageH - 20; w = h / ratio; }
+        pdf.addImage(imgUrl, 'PNG', (pageW - w) / 2, 10, w, h);
+        const blob = pdf.output('blob');
+        const blobUrl = URL.createObjectURL(blob);
+        const filename = `receipt_${num}_${(d.fullName || 'donor').replace(/\s/g, '_')}.pdf`;
+        const html = `<p class="small js-mb-12-line">הקבלה מוכנה. לחץ על הכפתור הירוק כדי לפתוח/לשמור את ה-PDF.</p><a href="${blobUrl}" target="_blank" rel="noopener noreferrer" download="${escapeHtml(filename)}" class="btn btn-accent js-download-primary">פתח / שמור PDF</a><a href="${imgUrl}" target="_blank" rel="noopener noreferrer" download="receipt_${num}.png" class="btn btn-ghost js-download-secondary">שמור כתמונה (PNG)</a><details><summary class="small muted js-summary-toggle">📷 תצוגה מקדימה של הקבלה (לצילום מסך)</summary><div class="js-preview-box"><img src="${imgUrl}" class="file-preview-img" alt="קבלה" /></div></details>`;
+        document.getElementById('modalBody').innerHTML = html;
+      }).catch(err => {
+        console.error(err);
+        document.getElementById('modalBody').innerHTML = `<div class="empty">שגיאה ביצירת הקבלה: ${escapeHtml(err.message || String(err))}</div>`;
+      });
+    };
+
+    const previousWeekly = typeof window.sendWeeklyReportEmail === 'function' ? window.sendWeeklyReportEmail : null;
+    window.sendWeeklyReportEmail = function(){
+      const to=(document.getElementById('weeklyReportEmail')?.value||settings.weeklyReportEmail||settings.reminderEmail||'').trim();
+      if(!to){toast('הכנס כתובת לקבלת דוח שבועי בהגדרות','error'); showPage('settings'); return;}
+      settings.weeklyReportEmail=to; saveData();
+      const list=(typeof upcomingWeekDonors==='function'?upcomingWeekDonors():[]);
+      let node=document.getElementById('weeklyReportSource'); if(!node){node=document.createElement('div'); node.id='weeklyReportSource'; node.className='weekly-report-source'; document.body.appendChild(node);} 
+      node.innerHTML=`<h1>דוח הנצחות השבוע הקרוב</h1><div>נוצר בתאריך ${new Date().toLocaleDateString('he-IL')}</div><table><thead><tr><th>תורם</th><th>תאריך</th><th>לעילוי נשמת</th><th>קטגוריות</th><th>סכום</th><th>סטטוס</th></tr></thead><tbody>${list.map(d=>`<tr><td>${escapeHtml(d.fullName||'')}</td><td>${escapeHtml([ndaHebDayText(d.hebDay),d.hebMonth].filter(Boolean).join(' ב'))}</td><td>${escapeHtml(d.deceasedName||d.memoryContent||'')}</td><td>${escapeHtml(ndaCatsText(d))}</td><td>${fmtDonorMoney(d)}</td><td>${escapeHtml(d.status||'')}</td></tr>`).join('') || '<tr><td colspan="6">אין הנצחות לשבוע הקרוב לפי התאריכים במערכת.</td></tr>'}</tbody></table>`;
+      if(!settings.emailServiceId||!settings.emailTemplateId||!settings.emailPublicKey||!window.emailjs){toast('כדי לשלוח PDF אוטומטית יש להגדיר EmailJS','error'); return;}
+      toast('יוצר PDF ושולח מייל...');
+      html2canvas(node,{scale:2,backgroundColor:'#fff'}).then(canvas=>{ const {jsPDF}=window.jspdf; const pdf=new jsPDF({orientation:'p',unit:'mm',format:'a4'}); const img=canvas.toDataURL('image/png'); const pageW=pdf.internal.pageSize.getWidth(); const w=pageW-14; const h=canvas.height/canvas.width*w; pdf.addImage(img,'PNG',7,7,w,Math.min(h,280)); const dataUri=pdf.output('datauristring'); try{emailjs.init({publicKey:settings.emailPublicKey});}catch(e){} return emailjs.send(settings.emailServiceId,settings.emailTemplateId,{to_email:to,to_name:'מנהל המערכת',subject:'דוח הנצחות השבוע הקרוב',message:'מצורף/מצורף כנתון PDF דוח ההנצחות לשבוע הקרוב.',pdf_data_url:dataUri,pdf_base64:dataUri.split(',')[1],report_html:node.innerHTML}); }).then(()=>toast('דוח PDF נשלח בהצלחה','success')).catch(err=>{console.error(err);toast('שגיאה בשליחת הדוח. בדוק תבנית EmailJS','error');});
+    };
+
+    document.addEventListener('DOMContentLoaded', function(){
+      donors.forEach(d => { if (!d.currency) d.currency = donorCurrency(d); });
+      if (typeof saveData === 'function') saveData();
+      if (typeof renderDashboard === 'function') renderDashboard();
+    });
+  })();
+  </script>
+ </body>
+</html>

@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+
+  <!-- Link Preview / WhatsApp / Facebook -->
+  <meta property="og:title" content="נציבי ישיבת דעת אהרן">
+  <meta property="og:description" content="נציבי החזקת לימוד התורה בישיבת דעת אהרן, ע״י הנצחת ימי לימוד בישיבה לשם ולתפארת.">
+  <meta property="og:image" content="https://daasaharon.com/uploads/banner.jpeg">
+  <meta property="og:image:secure_url" content="https://daasaharon.com/uploads/banner.jpeg">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:url" content="https://daasaharon.com/">
+  <meta property="og:type" content="website">
+
+  <!-- Twitter / X Preview -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="נציבי ישיבת דעת אהרן">
+  <meta name="twitter:description" content="נציבי החזקת לימוד התורה בישיבת דעת אהרן, ע״י הנצחת ימי לימוד בישיבה לשם ולתפארת.">
+  <meta name="twitter:image" content="https://daasaharon.com/uploads/banner.jpeg">
+
+  <title>נציבי ישיבת דעת אהרן</title>
+  <meta name="description" content="נציבי החזקת לימוד התורה בישיבת דעת אהרן, ע״י הנצחת ימי לימוד בישיבה לשם ולתפארת." />
+
+  <link rel="preconnect" href="https://i.postimg.cc">
+
+  <style>
+    @font-face {
+      font-family: 'Fb Sayeeda';
+      src: url('./fonts/FbSayeeda-Light.otf') format('opentype');
+      font-weight: 300;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    @font-face {
+      font-family: 'Fb Sayeeda';
+      src: url('./fonts/FbSayeeda-Regular.otf') format('opentype');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    @font-face {
+      font-family: 'Fb Sayeeda';
+      src: url('./fonts/FbSayeeda-Bold.otf') format('opentype');
+      font-weight: 700;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    @font-face {
+      font-family: 'Fb Sayeeda Book';
+      src: url('./fonts/FbSayeedaBook-Light.otf') format('opentype');
+      font-weight: 300;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    @font-face {
+      font-family: 'Fb Sayeeda Book';
+      src: url('./fonts/FbSayeedaBook-Regular.otf') format('opentype');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    @font-face {
+      font-family: 'Fb Sayeeda Book';
+      src: url('./fonts/FbSayeedaBook-Bold.otf') format('opentype');
+      font-weight: 700;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    :root {
+      --gold: #e2c271;
+      --gold-light: #ffe6a5;
+      --cream: #fff8e8;
+      --white: #ffffff;
+      --navy: #071421;
+      --line: rgba(226, 194, 113, .28);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      min-height: 100%;
+      -webkit-text-size-adjust: 100%;
+    }
+
+    body {
+      min-height: 100%;
+      font-family: 'Fb Sayeeda Book', 'Fb Sayeeda', Arial, sans-serif;
+      color: var(--cream);
+      background: var(--navy);
+      overflow-x: hidden;
+    }
+
+    .page {
+      position: relative;
+      min-height: 100svh;
+      overflow-x: hidden;
+      isolation: isolate;
+      background: var(--navy);
+    }
+
+    .bg-video {
+      position: absolute;
+      inset: 0;
+      z-index: -2;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center top;
+      pointer-events: none;
+    }
+
+    .page::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      background:
+        radial-gradient(circle at 50% 0%, rgba(255,230,165,.20), transparent 28%),
+        linear-gradient(180deg, rgba(7,20,33,.10), rgba(7,20,33,.74));
+      pointer-events: none;
+    }
+
+    .frame {
+      position: fixed;
+      inset: 14px;
+      border: 1px solid var(--line);
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    .language-switch {
+      position: fixed;
+      top: 28px;
+      inset-inline-start: 32px;
+      z-index: 10;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px;
+      border: 1px solid rgba(255,230,165,.35);
+      border-radius: 999px;
+      background: rgba(7,20,33,.66);
+      box-shadow: 0 14px 35px rgba(0,0,0,.25);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+
+    .lang-btn {
+      appearance: none;
+      border: 0;
+      border-radius: 999px;
+      padding: 8px 14px;
+      color: rgba(255,248,232,.78);
+      background: transparent;
+      font-family: 'Fb Sayeeda Book', 'Fb Sayeeda', Arial, sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background .2s ease, color .2s ease;
+    }
+
+    .lang-btn.active {
+      color: #071421;
+      background: linear-gradient(180deg, var(--gold-light), var(--gold));
+    }
+
+    .wrap {
+      position: relative;
+      z-index: 2;
+      width: min(1120px, calc(100% - 34px));
+      min-height: 100svh;
+      margin: 0 auto;
+      padding: 68px 0 42px;
+      display: grid;
+      align-items: center;
+    }
+
+    .hero {
+      width: 100%;
+      display: grid;
+      grid-template-columns: minmax(320px, 450px) minmax(0, 620px);
+      grid-template-areas: "content video";
+      gap: clamp(28px, 4vw, 56px);
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    html[dir="ltr"] .hero {
+      grid-template-columns: minmax(0, 620px) minmax(320px, 450px);
+      grid-template-areas: "content video";
+    }
+
+    .content {
+      grid-area: content;
+      text-align: right;
+    }
+
+    html[dir="ltr"] .content {
+      text-align: left;
+    }
+
+    .bsad {
+      margin-bottom: 16px;
+      color: rgba(255,248,232,.82);
+      font-size: 13px;
+      letter-spacing: .32em;
+      font-weight: 500;
+    }
+
+    .logo {
+      display: block;
+      width: min(440px, 88%);
+      height: auto;
+      margin-bottom: 22px;
+      filter: drop-shadow(0 14px 22px rgba(0,0,0,.45));
+    }
+
+
+    .logo-text {
+      display: none;
+      width: min(440px, 88%);
+      margin-bottom: 22px;
+      font-family: 'Fb Sayeeda', 'Fb Sayeeda Book', Georgia, serif;
+      line-height: .92;
+      color: var(--white);
+      text-shadow: 0 10px 24px rgba(0,0,0,.48);
+    }
+
+    .logo-text-small {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--gold-light);
+      font-size: clamp(16px, 1.5vw, 21px);
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .logo-text-main {
+      display: block;
+      font-size: clamp(54px, 6vw, 88px);
+      font-weight: 700;
+    }
+
+    html[lang="en"] .logo {
+      display: none;
+    }
+
+    html[lang="en"] .logo-text {
+      display: block;
+    }
+
+    html[dir="ltr"] .logo-text {
+      margin-right: auto;
+    }
+
+    html[dir="rtl"] .logo {
+      margin-left: auto;
+    }
+
+    html[dir="ltr"] .logo {
+      margin-right: auto;
+    }
+
+    .kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 18px;
+      color: var(--gold-light);
+      font-family: 'Fb Sayeeda', 'Fb Sayeeda Book', Arial, sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: .10em;
+    }
+
+    .kicker::before,
+    .kicker::after {
+      content: "";
+      width: 62px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255,230,165,.8), transparent);
+    }
+
+    h1 {
+      max-width: 760px;
+      font-family: 'Fb Sayeeda', 'Fb Sayeeda Book', Arial, sans-serif;
+      font-size: clamp(32px, 4vw, 54px);
+      line-height: 1.23;
+      color: var(--white);
+      font-weight: 700;
+      text-shadow: 0 8px 28px rgba(0,0,0,.42);
+    }
+
+    .accent {
+      color: var(--gold-light);
+      display: inline-block;
+    }
+
+    .sub {
+      max-width: 650px;
+      margin-top: 18px;
+      color: rgba(255,248,232,.88);
+      font-size: clamp(17px, 1.45vw, 22px);
+      line-height: 1.7;
+    }
+
+    .btn {
+      margin-top: 30px;
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      min-width: 250px;
+      min-height: 62px;
+      padding: 15px 34px;
+      border-radius: 999px;
+      color: #071421;
+      text-decoration: none;
+      font-family: 'Fb Sayeeda', 'Fb Sayeeda Book', Arial, sans-serif;
+      font-size: 19px;
+      font-weight: 700;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.78), transparent 45%),
+        linear-gradient(180deg, var(--gold-light), var(--gold));
+      box-shadow:
+        0 20px 44px rgba(0,0,0,.36),
+        inset 0 1px 0 rgba(255,255,255,.42);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .video-card {
+      grid-area: video;
+      width: 100%;
+      overflow: hidden;
+      border-radius: 28px;
+      border: 1px solid rgba(255,255,255,.18);
+      box-shadow: 0 24px 70px rgba(0,0,0,.42);
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.03)),
+        rgba(7,20,33,.72);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+
+    .video-frame {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: rgba(0,0,0,.28);
+    }
+
+    .player-video {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .video-caption {
+      padding: 14px 18px 16px;
+      color: rgba(255,248,232,.86);
+      font-size: 15px;
+      line-height: 1.45;
+      border-top: 1px solid rgba(255,255,255,.10);
+    }
+
+    @media (max-width: 900px) {
+      .language-switch {
+        top: 16px;
+        inset-inline-start: 50%;
+        transform: translateX(-50%);
+      }
+
+      .wrap {
+        width: min(100% - 26px, 560px);
+        padding: 72px 0 34px;
+        display: block;
+      }
+
+      .hero {
+        display: flex;
+        flex-direction: column;
+        gap: 22px;
+      }
+
+      .content {
+        text-align: center;
+        width: 100%;
+      }
+
+      html[dir="ltr"] .content {
+        text-align: center;
+      }
+
+      .bsad {
+        margin-top: 6px;
+        margin-bottom: 10px;
+        font-size: 12px;
+        letter-spacing: .26em;
+      }
+
+      .logo {
+        width: min(205px, 55vw);
+        max-height: 150px;
+        object-fit: contain;
+        margin: 0 auto 12px;
+        filter: drop-shadow(0 8px 15px rgba(0,0,0,.42));
+      }
+
+      html[dir="rtl"] .logo,
+      html[dir="ltr"] .logo {
+        margin: 0 auto 12px;
+      }
+
+      .logo-text {
+        width: min(260px, 70vw);
+        margin: 0 auto 12px;
+        text-align: center;
+      }
+
+      .logo-text-small {
+        font-size: 12px;
+      }
+
+      .logo-text-main {
+        font-size: clamp(38px, 13vw, 56px);
+      }
+
+
+      .kicker {
+        margin-bottom: 12px;
+        gap: 8px;
+        font-size: 12px;
+        letter-spacing: .05em;
+      }
+
+      .kicker::before,
+      .kicker::after {
+        width: 34px;
+      }
+
+      h1 {
+        max-width: 100%;
+        font-size: clamp(23px, 7.2vw, 33px);
+        line-height: 1.27;
+      }
+
+      .sub {
+        max-width: 360px;
+        margin: 12px auto 0;
+        font-size: 15px;
+        line-height: 1.55;
+      }
+
+      .btn {
+        width: min(100%, 340px);
+        min-width: 0;
+        min-height: 54px;
+        margin-top: 20px;
+        padding: 13px 20px;
+        font-size: 17px;
+      }
+
+      .video-card {
+        width: 100%;
+        border-radius: 18px;
+        margin-top: 0;
+      }
+
+      .video-caption {
+        padding: 11px 14px 13px;
+        font-size: 13px;
+      }
+    }
+
+    @media (max-width: 390px) {
+      .frame {
+        inset: 8px;
+      }
+
+      .wrap {
+        width: min(100% - 20px, 390px);
+        padding-top: 70px;
+      }
+
+      .lang-btn {
+        padding: 7px 12px;
+        font-size: 13px;
+      }
+
+      .logo {
+        width: min(185px, 52vw);
+        max-height: 132px;
+      }
+
+      h1 {
+        font-size: 22px;
+      }
+
+      .sub {
+        font-size: 14px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="page">
+    <video class="bg-video" autoplay muted loop playsinline preload="metadata" poster="">
+      <source src="https://daasaharon.com/uploads/cover.mp4" type="video/mp4">
+    </video>
+
+    <div class="frame"></div>
+
+    <div class="language-switch" aria-label="בחירת שפה / Language selection">
+      <button type="button" class="lang-btn" data-lang-switch="he">עברית</button>
+      <button type="button" class="lang-btn" data-lang-switch="en">English</button>
+    </div>
+
+    <main class="wrap">
+      <section class="hero">
+        <div class="content">
+          <div class="bsad" data-i18n="bsad">בס״ד</div>
+
+          <img class="logo" src="https://i.postimg.cc/DmVGFpYM/hwrdh.png" alt="נציבי ישיבת דעת אהרן" data-i18n-alt="logoAlt">
+
+          <div class="logo-text" aria-label="Daas Aharon Yeshiva Dedication Fund">
+            <span class="logo-text-small">Dedication Fund</span>
+            <span class="logo-text-main">Daas<br>Aharon</span>
+          </div>
+
+          <div class="kicker" data-i18n="kicker">קרן הנצחה לתורה</div>
+
+          <h1 data-i18n-html="headline">
+            נציבי החזקת לימוד התורה<br>
+            בישיבת דעת אהרן,<br>
+            ע״י הנצחת ימי לימוד בישיבה
+            <span class="accent">לשם ולתפארת</span>
+          </h1>
+
+          <p class="sub" data-i18n="sub">
+            הזדמנות מיוחדת לקחת חלק בהחזקת התורה, ולהנציח יום לימוד בישיבה מתוך שותפות, כבוד והמשכיות.
+          </p>
+
+          <a class="btn" href="/donate/index.html?lang=he" rel="noopener" data-donate-link data-i18n="button">
+            להשתתפות לחצו כאן
+          </a>
+        </div>
+
+        <aside class="video-card" aria-label="סרטון / Video">
+          <div class="video-frame">
+            <video class="player-video" controls playsinline preload="metadata" data-main-video>
+              <source src="/uploads/HEB.mp4" type="video/mp4">
+            </video>
+          </div>
+          <div class="video-caption" data-i18n="videoCaption">
+            צפו בסרטון והצטרפו להחזקת לימוד התורה בישיבה.
+          </div>
+        </aside>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    (function () {
+      const LANG_STORAGE_KEY = 'daasAharonLang';
+      const LEGACY_LANG_KEYS = ['language', 'lang', 'siteLang'];
+      const defaultLang = 'he';
+
+      const content = {
+        he: {
+          dir: 'rtl',
+          lang: 'he',
+          title: 'נציבי ישיבת דעת אהרן',
+          description: 'נציבי החזקת לימוד התורה בישיבת דעת אהרן, ע״י הנצחת ימי לימוד בישיבה לשם ולתפארת.',
+          bsad: 'בס״ד',
+          logoAlt: 'נציבי ישיבת דעת אהרן',
+          kicker: 'קרן הנצחה לתורה',
+          headline: 'נציבי החזקת לימוד התורה<br>בישיבת דעת אהרן,<br>ע״י הנצחת ימי לימוד בישיבה <span class="accent">לשם ולתפארת</span>',
+          sub: 'הזדמנות מיוחדת לקחת חלק בהחזקת התורה, ולהנציח יום לימוד בישיבה מתוך שותפות, כבוד והמשכיות.',
+          button: 'להשתתפות לחצו כאן',
+          videoCaption: 'צפו בסרטון והצטרפו להחזקת לימוד התורה בישיבה.',
+          videoSrc: '/uploads/HEB.mp4',
+          donateHref: '/donate/index.html?lang=he'
+        },
+        en: {
+          dir: 'ltr',
+          lang: 'en',
+          title: 'Daas Aharon Yeshiva Dedication Fund',
+          description: 'Support Torah learning at Yeshivat Daas Aharon by dedicating days of learning in the Yeshiva.',
+          bsad: 'BS”D',
+          logoAlt: 'Daas Aharon Yeshiva Dedication Fund',
+          kicker: 'Torah Dedication Fund',
+          headline: 'Support Torah learning<br>at Yeshivat Daas Aharon<br>by dedicating days of learning <span class="accent">with honor and purpose</span>',
+          sub: 'A meaningful opportunity to take part in sustaining Torah learning and to dedicate a day of learning in the Yeshiva with partnership, honor and continuity.',
+          button: 'Click here to participate',
+          videoCaption: 'Watch the video and join in supporting Torah learning at the Yeshiva.',
+          videoSrc: '/uploads/EN.mp4',
+          donateHref: '/donate/index.html?lang=en'
+        }
+      };
+
+      const html = document.documentElement;
+      const metaDescription = document.querySelector('meta[name="description"]');
+      const ogTitle = document.querySelector('meta[property="og:title"]');
+      const ogDescription = document.querySelector('meta[property="og:description"]');
+      const twitterTitle = document.querySelector('meta[name="twitter:title"]');
+      const twitterDescription = document.querySelector('meta[name="twitter:description"]');
+      const donateLink = document.querySelector('[data-donate-link]');
+      const mainVideo = document.querySelector('[data-main-video]');
+      const mainVideoSource = mainVideo ? mainVideo.querySelector('source') : null;
+      const langButtons = document.querySelectorAll('[data-lang-switch]');
+
+      function getRequestedLanguage() {
+        const params = new URLSearchParams(window.location.search);
+        const urlLang = params.get('lang');
+        const savedLang = localStorage.getItem(LANG_STORAGE_KEY);
+
+        if (urlLang && content[urlLang]) return urlLang;
+        if (savedLang && content[savedLang]) return savedLang;
+
+        for (const key of LEGACY_LANG_KEYS) {
+          const legacyLang = localStorage.getItem(key);
+          if (legacyLang && content[legacyLang]) return legacyLang;
+        }
+
+        return defaultLang;
+      }
+
+      function updateMeta(langData) {
+        document.title = langData.title;
+        if (metaDescription) metaDescription.setAttribute('content', langData.description);
+        if (ogTitle) ogTitle.setAttribute('content', langData.title);
+        if (ogDescription) ogDescription.setAttribute('content', langData.description);
+        if (twitterTitle) twitterTitle.setAttribute('content', langData.title);
+        if (twitterDescription) twitterDescription.setAttribute('content', langData.description);
+      }
+
+      function updateVideo(langData) {
+        if (!mainVideo || !mainVideoSource) return;
+
+        if (mainVideoSource.getAttribute('src') !== langData.videoSrc) {
+          mainVideo.pause();
+          mainVideoSource.setAttribute('src', langData.videoSrc);
+          mainVideo.load();
+        }
+      }
+
+      function persistLanguage(lang) {
+        localStorage.setItem(LANG_STORAGE_KEY, lang);
+        LEGACY_LANG_KEYS.forEach(function (key) {
+          localStorage.setItem(key, lang);
+        });
+      }
+
+      function updateDonateLink(langData) {
+        if (!donateLink) return;
+        donateLink.setAttribute('href', langData.donateHref);
+      }
+
+      function setLanguage(lang) {
+        const langData = content[lang] || content[defaultLang];
+
+        html.setAttribute('lang', langData.lang);
+        html.setAttribute('dir', langData.dir);
+        persistLanguage(lang);
+
+        document.querySelectorAll('[data-i18n]').forEach(function (element) {
+          const key = element.getAttribute('data-i18n');
+          if (langData[key]) element.textContent = langData[key];
+        });
+
+        document.querySelectorAll('[data-i18n-html]').forEach(function (element) {
+          const key = element.getAttribute('data-i18n-html');
+          if (langData[key]) element.innerHTML = langData[key];
+        });
+
+        document.querySelectorAll('[data-i18n-alt]').forEach(function (element) {
+          const key = element.getAttribute('data-i18n-alt');
+          if (langData[key]) element.setAttribute('alt', langData[key]);
+        });
+
+        langButtons.forEach(function (button) {
+          const isActive = button.getAttribute('data-lang-switch') === lang;
+          button.classList.toggle('active', isActive);
+          button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        });
+
+        const languageSwitch = document.querySelector('.language-switch');
+        if (languageSwitch) {
+          languageSwitch.setAttribute('aria-label', lang === 'he' ? 'בחירת שפה' : 'Language selection');
+        }
+
+        const videoCard = document.querySelector('.video-card');
+        if (videoCard) {
+          videoCard.setAttribute('aria-label', lang === 'he' ? 'סרטון' : 'Video');
+        }
+
+        updateMeta(langData);
+        updateVideo(langData);
+        updateDonateLink(langData);
+      }
+
+      langButtons.forEach(function (button) {
+        button.addEventListener('click', function () {
+          const nextLang = button.getAttribute('data-lang-switch');
+          setLanguage(nextLang);
+        });
+      });
+
+      setLanguage(getRequestedLanguage());
+    })();
+  </script>
+</body>
+</html>

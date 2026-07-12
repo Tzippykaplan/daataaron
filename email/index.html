@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>שליחת מייל לתורמים | ישיבת דעת אהרן</title>
+  <meta name="description" content="טופס שליחת מייל לתורמים עבור ישיבת דעת אהרן." />
+
+  <link rel="preconnect" href="https://i.postimg.cc">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Merriweather:ital,opsz,wght@0,18..144,300..900;1,18..144,300..900&display=swap" rel="stylesheet">
+
+  <style>
+    @font-face {
+      font-family: 'Fb Sayeeda';
+      src: url('./fonts/FbSayeeda-Light.otf') format('opentype');
+      font-weight: 300;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    @font-face {
+      font-family: 'Fb Sayeeda';
+      src: url('./fonts/FbSayeeda-Regular.otf') format('opentype');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    @font-face {
+      font-family: 'Fb Sayeeda';
+      src: url('./fonts/FbSayeeda-Bold.otf') format('opentype');
+      font-weight: 700;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    @font-face {
+      font-family: 'Fb Sayeeda Book';
+      src: url('./fonts/FbSayeedaBook-Light.otf') format('opentype');
+      font-weight: 300;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    @font-face {
+      font-family: 'Fb Sayeeda Book';
+      src: url('./fonts/FbSayeedaBook-Regular.otf') format('opentype');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    @font-face {
+      font-family: 'Fb Sayeeda Book';
+      src: url('./fonts/FbSayeedaBook-Bold.otf') format('opentype');
+      font-weight: 700;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    :root {
+      --gold: #e2c271;
+      --gold-light: #ffe6a5;
+      --cream: #fff8e8;
+      --white: #ffffff;
+      --navy: #071421;
+      --dark: rgba(7, 20, 33, .78);
+      --line: rgba(226, 194, 113, .28);
+      --line-strong: rgba(255, 230, 165, .40);
+      --field: rgba(255, 255, 255, .075);
+      --field-focus: rgba(255, 255, 255, .12);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      min-height: 100%;
+      -webkit-text-size-adjust: 100%;
+    }
+
+    body {
+      min-height: 100%;
+      font-family: 'Fb Sayeeda Book', 'Fb Sayeeda', Arial, sans-serif;
+      color: var(--cream);
+      background: var(--navy);
+      overflow-x: hidden;
+    }
+
+    .page {
+      position: relative;
+      min-height: 100svh;
+      overflow-x: hidden;
+      isolation: isolate;
+      background:
+        radial-gradient(circle at 50% 0%, rgba(255, 230, 165, .18), transparent 30%),
+        var(--navy);
+    }
+
+    .bg-video {
+      position: absolute;
+      inset: 0;
+      z-index: -2;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center top;
+      pointer-events: none;
+      opacity: .74;
+    }
+
+    .page::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      background:
+        radial-gradient(circle at 65% 15%, rgba(255, 230, 165, .18), transparent 28%),
+        linear-gradient(90deg, rgba(7, 20, 33, .48), rgba(7, 20, 33, .82) 52%, rgba(7, 20, 33, .68)),
+        linear-gradient(180deg, rgba(7, 20, 33, .16), rgba(7, 20, 33, .80));
+      pointer-events: none;
+    }
+
+    .frame {
+      position: fixed;
+      inset: 14px;
+      border: 1px solid var(--line);
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    .wrap {
+      position: relative;
+      z-index: 2;
+      width: min(1120px, calc(100% - 34px));
+      min-height: 100svh;
+      margin: 0 auto;
+      padding: 58px 0 42px;
+      display: grid;
+      align-items: center;
+    }
+
+    .admin-layout {
+      width: 100%;
+      display: grid;
+      grid-template-columns: minmax(340px, 520px) minmax(320px, 470px);
+      gap: clamp(28px, 4vw, 58px);
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .intro {
+      text-align: right;
+    }
+
+    .bsad {
+      margin-bottom: 16px;
+      color: rgba(255, 248, 232, .82);
+      font-size: 13px;
+      letter-spacing: .32em;
+      font-weight: 500;
+    }
+
+    .logo {
+      display: block;
+      width: min(410px, 88%);
+      height: auto;
+      margin: 0 0 24px auto;
+      filter: drop-shadow(0 14px 22px rgba(0, 0, 0, .45));
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+      color: var(--gold-light);
+      font-family: 'Fb Sayeeda', 'Fb Sayeeda Book', Arial, sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: .08em;
+    }
+
+    .eyebrow::before,
+    .eyebrow::after {
+      content: "";
+      width: 56px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255, 230, 165, .78), transparent);
+    }
+
+    h1 {
+      max-width: 560px;
+      font-family: 'Fb Sayeeda', 'Fb Sayeeda Book', Arial, sans-serif;
+      font-size: clamp(38px, 4.9vw, 68px);
+      line-height: .98;
+      color: var(--white);
+      font-weight: 700;
+      text-shadow: 0 8px 28px rgba(0, 0, 0, .42);
+    }
+
+    .accent {
+      color: var(--gold-light);
+      display: inline-block;
+    }
+
+    .intro-text {
+      max-width: 520px;
+      margin-top: 18px;
+      color: rgba(255, 248, 232, .88);
+      font-size: clamp(17px, 1.45vw, 22px);
+      line-height: 1.7;
+    }
+
+    .site-link {
+      margin-top: 22px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--gold-light);
+      text-decoration: none;
+      font-size: 17px;
+      font-weight: 700;
+      transition: color .2s ease, transform .2s ease;
+    }
+
+    .site-link:hover {
+      color: var(--cream);
+      transform: translateX(-2px);
+    }
+
+    .form-card {
+      width: 100%;
+      overflow: hidden;
+      border-radius: 28px;
+      border: 1px solid rgba(255, 255, 255, .18);
+      box-shadow: 0 24px 70px rgba(0, 0, 0, .42);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, .09), rgba(255, 255, 255, .03)),
+        rgba(7, 20, 33, .76);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+
+    .form-header {
+      padding: 24px 26px 18px;
+      border-bottom: 1px solid rgba(255, 255, 255, .10);
+      background: linear-gradient(180deg, rgba(255, 230, 165, .08), transparent);
+    }
+
+    .form-title {
+      color: var(--white);
+      font-family: 'Fb Sayeeda', 'Fb Sayeeda Book', Arial, sans-serif;
+      font-size: 30px;
+      font-weight: 700;
+      line-height: 1.1;
+      text-align: center;
+      text-shadow: 0 8px 22px rgba(0, 0, 0, .35);
+    }
+
+    .form-subtitle {
+      margin-top: 8px;
+      color: rgba(255, 248, 232, .76);
+      font-size: 15px;
+      line-height: 1.5;
+      text-align: center;
+    }
+
+    form {
+      padding: 24px 26px 26px;
+    }
+
+    .form-group {
+      margin-bottom: 18px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      color: rgba(255, 248, 232, .86);
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    input[type="email"],
+    input[type="text"],
+    textarea {
+      width: 100%;
+      padding: 14px 15px;
+      border: 1px solid rgba(255, 255, 255, .16);
+      border-radius: 14px;
+      color: var(--white);
+      background: var(--field);
+      font-family: 'Fb Sayeeda Book', 'Fb Sayeeda', Arial, sans-serif;
+      font-size: 16px;
+      line-height: 1.35;
+      transition: border-color .22s ease, background .22s ease, box-shadow .22s ease;
+    }
+
+    input[type="email"] {
+      direction: ltr;
+      text-align: left;
+      font-family: 'Merriweather', Georgia, serif;
+      font-size: 14px;
+    }
+
+    input::placeholder,
+    textarea::placeholder {
+      color: rgba(255, 248, 232, .47);
+    }
+
+    input:focus,
+    textarea:focus {
+      outline: none;
+      border-color: var(--gold-light);
+      background: var(--field-focus);
+      box-shadow: 0 0 0 4px rgba(226, 194, 113, .12);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 150px;
+    }
+
+    .btn {
+      width: 100%;
+      min-height: 62px;
+      margin-top: 6px;
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      padding: 15px 34px;
+      border: 0;
+      border-radius: 999px;
+      color: #071421;
+      text-decoration: none;
+      font-family: 'Fb Sayeeda', 'Fb Sayeeda Book', Arial, sans-serif;
+      font-size: 20px;
+      font-weight: 700;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, .78), transparent 45%),
+        linear-gradient(180deg, var(--gold-light), var(--gold));
+      box-shadow:
+        0 20px 44px rgba(0, 0, 0, .36),
+        inset 0 1px 0 rgba(255, 255, 255, .42);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: transform .18s ease, filter .18s ease, box-shadow .18s ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.04);
+      box-shadow:
+        0 24px 52px rgba(0, 0, 0, .40),
+        inset 0 1px 0 rgba(255, 255, 255, .45);
+    }
+
+    .btn:active {
+      transform: translateY(1px);
+    }
+
+    .btn:disabled {
+      opacity: .58;
+      filter: grayscale(.25);
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .status-msg {
+      min-height: 24px;
+      margin-top: 18px;
+      text-align: center;
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    @media (max-width: 900px) {
+      .wrap {
+        width: min(100% - 26px, 560px);
+        padding: 44px 0 34px;
+        display: block;
+      }
+
+      .admin-layout {
+        display: flex;
+        flex-direction: column;
+        gap: 22px;
+      }
+
+      .intro {
+        text-align: center;
+        width: 100%;
+      }
+
+      .bsad {
+        margin-top: 6px;
+        margin-bottom: 10px;
+        font-size: 12px;
+        letter-spacing: .26em;
+      }
+
+      .logo {
+        width: min(210px, 55vw);
+        max-height: 150px;
+        object-fit: contain;
+        margin: 0 auto 12px;
+        filter: drop-shadow(0 8px 15px rgba(0, 0, 0, .42));
+      }
+
+      .eyebrow {
+        margin-bottom: 12px;
+        gap: 8px;
+        font-size: 12px;
+        letter-spacing: .05em;
+      }
+
+      .eyebrow::before,
+      .eyebrow::after {
+        width: 34px;
+      }
+
+      h1 {
+        max-width: 100%;
+        font-size: clamp(34px, 10vw, 52px);
+        line-height: 1;
+      }
+
+      .intro-text {
+        max-width: 400px;
+        margin: 12px auto 0;
+        font-size: 15px;
+        line-height: 1.55;
+      }
+
+      .site-link {
+        margin-top: 14px;
+        font-size: 15px;
+      }
+
+      .form-card {
+        border-radius: 20px;
+      }
+
+      .form-header {
+        padding: 20px 20px 14px;
+      }
+
+      .form-title {
+        font-size: 26px;
+      }
+
+      form {
+        padding: 20px;
+      }
+
+      .btn {
+        min-height: 56px;
+        font-size: 18px;
+      }
+    }
+
+    @media (max-width: 390px) {
+      .frame {
+        inset: 8px;
+      }
+
+      .wrap {
+        width: min(100% - 20px, 390px);
+        padding-top: 36px;
+      }
+
+      .logo {
+        width: min(188px, 52vw);
+        max-height: 132px;
+      }
+
+      h1 {
+        font-size: 32px;
+      }
+
+      .form-title {
+        font-size: 24px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <video class="bg-video" autoplay muted loop playsinline preload="metadata" poster="/uploads/banner.jpeg">
+      <source src="/uploads/cover.mp4" type="video/mp4">
+    </video>
+
+    <div class="frame"></div>
+
+    <main class="wrap">
+      <section class="admin-layout">
+        <div class="intro">
+          <div class="bsad">בס״ד</div>
+          <img class="logo" src="/uploads/logo2.png" alt="נציבי ישיבת דעת אהרן">
+          <div class="eyebrow">מערכת ניהול לתורמים</div>
+          <h1>שליחת מייל<br><span class="accent">לתורמים</span></h1>
+          <p class="intro-text">
+טופס לשליחת מייל בקשת תרומה          </p>
+          <a class="site-link" href="/" rel="noopener">חזרה לאתר ←</a>
+        </div>
+
+        <section class="form-card" aria-label="טופס שליחת מייל לתורמים">
+          <div class="form-header">
+            <div class="form-title">טופס שליחת מייל לתורמים</div>
+            <div class="form-subtitle">ההודעה תישלח עם נוסח התרומה והקישור הקבוע בסיום המייל.</div>
+          </div>
+
+          <form id="mailForm">
+            <div class="form-group">
+              <label for="email_recipient">כתובת מייל של הנמען</label>
+              <input type="email" id="email_recipient" required placeholder="donor@example.com" autocomplete="email">
+            </div>
+
+            <div class="form-group">
+              <label for="email_subject">כותרת המייל</label>
+              <input type="text" id="email_subject" required placeholder="הזן את כותרת המייל" autocomplete="off">
+            </div>
+
+            <div class="form-group">
+              <label for="email_body">תוכן ההודעה</label>
+              <textarea id="email_body" required placeholder="כתוב את תוכן ההודעה כאן..."></textarea>
+            </div>
+
+            <button class="btn" type="submit" id="submitBtn">שלח הודעה</button>
+            <div id="status" class="status-msg" role="status" aria-live="polite"></div>
+          </form>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    // חשוב! החלף את הקישור למטה בכתובת ה-URL שקיבלת מגוגל בעת ביצוע ה-Deployment
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyBixRsn71JP7x8b8thP-Nc623M_E4xBUWldt3ddNf1ZEscO7OaBjygNWOnpNLW0Xu7/exec";
+
+    // ==========================================
+    // הגדרות נוסח קבוע ולינק שיתווספו תמיד לסוף המייל:
+    // ==========================================
+    const CONSTANT_TEXT = "מצורף הלינק לתרומה";
+    const CONSTANT_LINK = "daasaharon.com";
+    // ==========================================
+
+    document.getElementById('mailForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+
+      const submitBtn = document.getElementById('submitBtn');
+      const statusDiv = document.getElementById('status');
+
+      submitBtn.disabled = true;
+      submitBtn.innerText = "שולח נתונים...";
+      statusDiv.innerText = "";
+
+      const userMessage = document.getElementById('email_body').value;
+      const fullEmailBody = `${userMessage}\n\n${CONSTANT_TEXT}\n${CONSTANT_LINK}`;
+
+      const formData = {
+        email_recipient: document.getElementById('email_recipient').value,
+        email_subject: document.getElementById('email_subject').value,
+        email_body: fullEmailBody,
+        message: fullEmailBody,
+        server_status: "נשלח מטופס אינטרנט",
+        value: 1
+      };
+
+      fetch(WEB_APP_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        cache: 'no-cache',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formData)
+      })
+      .then(() => {
+        statusDiv.style.color = "#7bd88f";
+        statusDiv.innerText = "המייל נשלח בהצלחה.";
+        document.getElementById('mailForm').reset();
+      })
+      .catch(error => {
+        statusDiv.style.color = "#ff8a80";
+        statusDiv.innerText = "אירעה שגיאה בשליחת הנתונים.";
+        console.error('Error:', error);
+      })
+      .finally(() => {
+        submitBtn.disabled = false;
+        submitBtn.innerText = "שלח הודעה";
+      });
+    });
+  </script>
+</body>
+</html>
