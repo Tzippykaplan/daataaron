@@ -935,6 +935,10 @@ html[dir="ltr"] .btn-primary.grow2 svg { transform: scaleX(-1); }
           <input type="text" id="lastName" placeholder="Last Name" />
         </div>
       </div>
+      <div class="field">
+        <label id="donorNameLabel">שם המתרים</label>
+        <input type="text" id="donorName" placeholder="שם המתרים" />
+      </div>
       <div class="field-row cols-2">
         <div class="field">
           <label id="emailLabel">Email <span class="req">*</span></label>
@@ -1525,7 +1529,7 @@ html[dir="ltr"] .btn-primary.grow2 svg { transform: scaleX(-1); }
     'מסלול זהב':'Gold Option', 'נציב יום זהב':'Gold Day Dedication', 'כל הטבות מסלול נציב יום רגיל':'All benefits of the standard day dedication', 'הנצחה קבועה בלוח הזיכרון':'Permanent dedication on the memorial board', 'אזכרה מיוחדת בעצרת השנתית':'Special mention at the annual gathering', 'מעמד מכובד בקהילת המנציחים':'Honored status among the dedication community',
     'המשך':'Continue', 'חזרה':'Back', 'חזרה לתפריט הראשי':'Back to Main Menu', 'עמודי הישיבה':'Yeshiva Pillars', 'מסלולי הוראת קבע לבוגרי וידידי הישיבה':'Standing-order tracks for alumni and friends of the Yeshiva',
     'פרטי התורם':'Donor Details', 'נשמח להכיר — הפרטים ישמשו ליצירת קשר ולמשלוח אישור':'Please enter your details for contact and confirmation purposes',
-    'שם מלא':'Full Name', 'טלפון':'Phone', 'דוא״ל':'Email', 'כתובת':'Address',
+    'שם מלא':'Full Name', 'שם המתרים':'Donor Name', 'טלפון':'Phone', 'דוא״ל':'Email', 'כתובת':'Address',
     'פרטי ההנצחה':'Dedication Details', 'בחרו את סוג ההנצחה ומלאו את הפרטים המתאימים':'Choose the dedication purpose and fill in the relevant details', 'למי מוקדשת ההנצחה ומתי יום הזיכרון':'Who the dedication is for and when the yahrzeit is observed',
     'שם הנפטר/ת':'Name of Deceased', 'תאריך ההנצחה — יום':'Dedication Date — Day', 'חודש עברי':'Hebrew Month', 'בחרו חודש':'Select Month', 'נוסח ההנצחה':'Dedication Text', 'לדוגמה: "לעילוי נשמת אבינו היקר ר׳ ... בן ר׳ ..."':'Example: “In memory of our beloved father, R’ ... son of R’ ...”',
     'בחרו את אמצעי התשלום הנוח לכם':'Choose your preferred payment method', 'לעילוי נשמת':'In Memory Of', 'תאריך ההנצחה':'Dedication Date', 'סך לתשלום':'Total Due',
@@ -1735,6 +1739,11 @@ html[dir="ltr"] .btn-primary.grow2 svg { transform: scaleX(-1); }
     const full=$('fullName'), first=$('firstName'), last=$('lastName');
     if(lang()==='en' && full && first && last) full.value = [first.value.trim(), last.value.trim()].filter(Boolean).join(' ');
   }
+  function syncDonorNameField(){
+    // Keep donorName as a separate, user-entered value.
+    // Do not auto-fill it from the full name.
+    return;
+  }
   function syncHiddenAddress(){
     const address=$('address');
     if(lang()==='en' && address) {
@@ -1746,10 +1755,15 @@ html[dir="ltr"] .btn-primary.grow2 svg { transform: scaleX(-1); }
     const isHe = lang()==='he';
     setLabel('emailLabel', isHe ? 'דוא״ל <span class="req">*</span>' : 'Email <span class="req">*</span>');
     setLabel('phoneLabel', isHe ? 'טלפון <span class="req">*</span>' : 'Phone <span class="req">*</span>');
+    const donorNameLabel = $('donorNameLabel');
+    if(donorNameLabel){ donorNameLabel.textContent = isHe ? 'שם המתרים' : 'Fundraiser'; }
+    const donorNameInput = $('donorName');
+    if(donorNameInput){ donorNameInput.setAttribute('placeholder', isHe ? 'שם המתרים' : 'Fundraiser'); }
     document.querySelectorAll('input, textarea, select').forEach(el => {
       el.style.setProperty('text-align', isHe ? 'right' : 'left', 'important');
       el.dir = isHe ? 'rtl' : 'ltr';
     });
+    syncDonorNameField();
     document.querySelectorAll('.field, .field *, .step, .step *, .header-text, .header-text *, .site-footer, .site-footer *, .bank-row, .bank-row *, .summary-row, .summary-row *, .type-card, .type-card *, .pay-method, .pay-method *, .extra-fields, .extra-fields *').forEach(el => {
       el.style.setProperty('text-align', isHe ? 'right' : 'left', 'important');
     });
@@ -1801,6 +1815,7 @@ html[dir="ltr"] .btn-primary.grow2 svg { transform: scaleX(-1); }
       const firstName = ($('firstName')?.value || '').trim();
       const lastName = ($('lastName')?.value || '').trim();
       const fullName = isHe ? (($('fullName')?.value || '').trim()) : [firstName, lastName].filter(Boolean).join(' ');
+      const donorName = (($('donorName')?.value || '').trim()) || fullName;
       const streetAddress = ($('streetAddress')?.value || '').trim();
       const city = ($('city')?.value || '').trim();
       const stateRegion = ($('stateRegion')?.value || '').trim();
@@ -1808,7 +1823,7 @@ html[dir="ltr"] .btn-primary.grow2 svg { transform: scaleX(-1); }
       const country = ($('country')?.value || '').trim();
       const address = isHe ? (($('address')?.value || '').trim()) : [streetAddress, city, stateRegion, zipCode, country].filter(Boolean).join(', ');
       Object.assign(donor, {
-        firstName, lastName, fullName,
+        firstName, lastName, fullName, donorName,
         phone: ($('phone')?.value || '').trim(),
         email: ($('email')?.value || '').trim(),
         address, streetAddress, city, state: stateRegion, stateRegion, zipCode, country
@@ -1818,20 +1833,20 @@ html[dir="ltr"] .btn-primary.grow2 svg { transform: scaleX(-1); }
   }
   document.addEventListener('input', function(e){
     if(['firstName','lastName','streetAddress','city','stateRegion','zipCode','country'].includes(e.target.id)){
-      syncHiddenName(); syncHiddenAddress();
+      syncHiddenName(); syncHiddenAddress(); syncDonorNameField();
     }
   });
 
   function forceTranslatedPlaceholders(){
     const isHe = lang()==='he';
     const enPlaceholders = {
-      fullName:'Full Name', firstName:'First Name', lastName:'Last Name', email:'example@email.com', phone:'050-0000000',
+      fullName:'Full Name', donorName:'Fundraiser', firstName:'First Name', lastName:'Last Name', email:'example@email.com', phone:'050-0000000',
       address:'Address', streetAddress:'Street Address', city:'City', stateRegion:'State', zipCode:'ZIP Code', country:'Country',
       deceasedName:'Full name of the deceased', hebDay:'1-30', memoryContent:'In memory of...', ccName:'As it appears on the card',
       ccNumber:'0000 0000 0000 0000', ccExpiry:'MM/YY', ccCvv:'000'
     };
     const hePlaceholders = {
-      fullName:'שם מלא', firstName:'שם פרטי', lastName:'שם משפחה', email:'example@email.com', phone:'050-0000000',
+      fullName:'שם מלא', donorName:'שם המתרים', firstName:'שם פרטי', lastName:'שם משפחה', email:'example@email.com', phone:'050-0000000',
       address:'כתובת', streetAddress:'כתובת רחוב', city:'עיר', stateRegion:'מדינה/מחוז', zipCode:'מיקוד', country:'מדינה',
       deceasedName:'שם מלא של הנפטר/ת', hebDay:'1-30', memoryContent:'לעילוי נשמת...', ccName:'כפי שמופיע על הכרטיס',
       ccNumber:'0000 0000 0000 0000', ccExpiry:'MM/YY', ccCvv:'000'
@@ -2570,6 +2585,13 @@ html[dir="ltr"] .btn-primary.grow2 svg { transform: scaleX(-1); }
     grid.insertBefore(card, grid.firstChild);
   }
 
+  function syncNedarimFieldLabels(){
+    const label = el('nedarimDonorNameLabel');
+    const input = el('nedarimDonorName');
+    if(label) label.textContent = he() ? 'שם המתרים' : 'Fundraiser';
+    if(input) input.setAttribute('placeholder', he() ? 'שם המתרים' : 'Fundraiser');
+  }
+
   function ensureNedarimPanel(){
     const panel = el('panel-card');
     if(!panel || el('nedarimLiveBox')) return;
@@ -2585,6 +2607,10 @@ html[dir="ltr"] .btn-primary.grow2 svg { transform: scaleX(-1); }
         <div class="nedarim-live-pill">ILS · מוסד 7018563</div>
       </div>
       <div class="nedarim-live-grid">
+        <div class="field">
+          <label for="nedarimDonorName" id="nedarimDonorNameLabel">שם המתרים</label>
+          <input type="text" id="nedarimDonorName" placeholder="שם המתרים" />
+        </div>
         <div class="field">
           <label for="nedarimPaymentType">סוג חיוב</label>
           <select id="nedarimPaymentType">
@@ -2673,6 +2699,10 @@ html[dir="ltr"] .btn-primary.grow2 svg { transform: scaleX(-1); }
 
   function updateNedarimPanel(){
     ensureNedarimPanel();
+    syncNedarimFieldLabels();
+    const mainDonorName = (document.getElementById('donorName')?.value || '').trim();
+    const nedarimDonorName = el('nedarimDonorName');
+    if(nedarimDonorName && !nedarimDonorName.value && mainDonorName){ nedarimDonorName.value = mainDonorName; }
     const active = he() && state && state.payment === 'card';
     const box = el('nedarimLiveBox');
     if(box) box.classList.toggle('active', !!active);
@@ -2707,7 +2737,9 @@ html[dir="ltr"] .btn-primary.grow2 svg { transform: scaleX(-1); }
   }
 
   function buildNedarimPayload(donor){
-    const names = splitName(donor.fullName);
+    const donorNameInput = (el('nedarimDonorName')?.value || '').trim();
+    const donorName = donorNameInput || donor.donorName || donor.fullName || '';
+    const names = splitName(donorName || donor.fullName);
     const total = Number(PRICES_ILS[state.type] || donor.amount || 0);
     const paymentType = el('nedarimPaymentType')?.value || 'Ragil';
     const installments = Math.max(1, Math.min(NEDARIM_CONFIG.maxInstallments, Number(el('nedarimInstallments')?.value || 1)));
@@ -2715,9 +2747,9 @@ html[dir="ltr"] .btn-primary.grow2 svg { transform: scaleX(-1); }
     const typeLabel = labelForType(state.type);
     const dedication = donor.memoryContent || donor.deceasedName || '';
     const date = [donor.hebDay, donor.hebMonth].filter(Boolean).join(' ');
-    const fullName = clip(donor.fullName || [names.first,names.last].filter(Boolean).join(' '), 50);
+    const fullName = clip(donorName || donor.fullName || [names.first,names.last].filter(Boolean).join(' '), 50);
     const orderRef = donor.orderRef || donor.id || '';
-    const comment = clip(['הנצחה: ' + dedication, date ? 'תאריך: ' + date : '', 'תורם: ' + donor.fullName, 'מספר הזמנה: ' + orderRef].filter(Boolean).join(' | '), 300);
+    const comment = clip(['הנצחה: ' + dedication, date ? 'תאריך: ' + date : '', 'שם המתרים: ' + (donorName || donor.fullName || '—'), 'מספר הזמנה: ' + orderRef].filter(Boolean).join(' | '), 300);
 
     // Official Nedarim iframe sample sends the transaction as:
     // PostNedarim({ Name:'FinishTransaction2', Value:{ ... } })
@@ -3330,6 +3362,31 @@ html[dir="ltr"] .btn-primary.grow2 svg { transform: scaleX(-1); }
   function setInvalid(id, bad){ const node = $(id); if(node) node.classList.toggle('invalid', !!bad); }
   function show(msg){ if(typeof showError === 'function') showError(msg); }
 
+  function syncDonorFormFields(){
+    const he = isHe();
+    const fullNameEl = $('fullName');
+    const firstEl = $('firstName');
+    const lastEl = $('lastName');
+    const first = ((firstEl && firstEl.value) || '').trim();
+    const last = ((lastEl && lastEl.value) || '').trim();
+    const fallbackName = [first, last].filter(Boolean).join(' ');
+    const fullNameValue = ((fullNameEl && fullNameEl.value) || '').trim();
+
+    if(fullNameEl && !fullNameValue && fallbackName){
+      fullNameEl.value = fallbackName;
+    }
+
+    if(!he){
+      const street = (($('streetAddress') && $('streetAddress').value) || '').trim();
+      const city = (($('city') && $('city').value) || '').trim();
+      const stateRegion = (($('stateRegion') && $('stateRegion').value) || '').trim();
+      const zipCode = (($('zipCode') && $('zipCode').value) || '').trim();
+      const country = (($('country') && $('country').value) || '').trim();
+      const addressEl = $('address');
+      if(addressEl && !addressEl.value.trim()) addressEl.value = [street, city, stateRegion, zipCode, country].filter(Boolean).join(', ');
+    }
+  }
+
   function syncConfig(){
     if(!window.CONFIG) return;
     CONFIG.PRICES = Object.assign({}, isHe() ? ILS : USD);
@@ -3457,6 +3514,7 @@ html[dir="ltr"] .btn-primary.grow2 svg { transform: scaleX(-1); }
       return true;
     }
     if(n === 2){
+      syncDonorFormFields();
       const he = isHe();
       const full = (($('fullName') && $('fullName').value) || '').trim();
       const first = (($('firstName') && $('firstName').value) || '').trim();
@@ -3464,16 +3522,15 @@ html[dir="ltr"] .btn-primary.grow2 svg { transform: scaleX(-1); }
       const phone = (($('phone') && $('phone').value) || '').trim();
       const email = (($('email') && $('email').value) || '').trim();
       const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+      const nameOk = !!(full || [first, last].filter(Boolean).join(' '));
       setInvalid('fullName', he && !full);
-      setInvalid('firstName', !he && !first);
-      setInvalid('lastName', !he && !last);
       setInvalid('phone', !phone);
       setInvalid('email', !emailOk);
-      if((he && !full) || (!he && (!first || !last)) || !phone || !emailOk){
-        show(!emailOk ? (he ? 'כתובת הדוא״ל אינה תקינה' : 'Please enter a valid email address') : (he ? 'אנא מלאו את כל שדות החובה' : 'Please fill in all required fields'));
+      if(!nameOk || !phone || !emailOk){
+        show(!emailOk ? (he ? 'כתובת הדוא״ל אינה תקינה' : 'Please enter a valid email address') : (he ? 'אנא הזינו שם מלא' : 'Please enter a full name'));
         return false;
       }
-      if(!he && $('fullName')) $('fullName').value = [first,last].filter(Boolean).join(' ');
+      if(he && $('fullName') && !full) $('fullName').value = [first, last].filter(Boolean).join(' ');
       return true;
     }
     return true;
@@ -3514,6 +3571,7 @@ html[dir="ltr"] .btn-primary.grow2 svg { transform: scaleX(-1); }
   const previousBuildDonor = window.buildDonor;
   window.buildDonor = function(ref){
     syncConfig();
+    syncDonorFormFields();
     let donor = {};
     if(typeof previousBuildDonor === 'function'){
       try { donor = previousBuildDonor(ref) || {}; } catch(e) { donor = {}; }
@@ -3522,9 +3580,13 @@ html[dir="ltr"] .btn-primary.grow2 svg { transform: scaleX(-1); }
     const first = (($('firstName') && $('firstName').value) || '').trim();
     const last = (($('lastName') && $('lastName').value) || '').trim();
     const full = he ? ((($('fullName') && $('fullName').value) || '').trim()) : [first,last].filter(Boolean).join(' ');
+    const donorNameValue = ((($('donorName') && $('donorName').value) || '').trim()) || ((($('nedarimDonorName') && $('nedarimDonorName').value) || '').trim());
+    const fallbackFullName = full || [first,last].filter(Boolean).join(' ');
     const note = state.type === 'test_ils' ? ' · מסלול לייט ₪10' : '';
     donor.id = donor.id || ('d_' + Date.now() + '_' + Math.random().toString(36).slice(2,7));
-    donor.fullName = full;
+    donor.fullName = fallbackFullName;
+    donor.donorName = donorNameValue;
+    donor.honoreeName = donorNameValue || fallbackFullName;
     donor.firstName = he ? full.split(/\s+/).shift() || full : first;
     donor.lastName = he ? full.split(/\s+/).slice(1).join(' ') : last;
     donor.phone = (($('phone') && $('phone').value) || '').trim();
@@ -3549,10 +3611,17 @@ html[dir="ltr"] .btn-primary.grow2 svg { transform: scaleX(-1); }
   if(typeof previousSetLanguage === 'function'){
     window.setLanguage = function(lang){
       previousSetLanguage(lang);
-      setTimeout(function(){ updateMainPrices(); updateDateFields(); if(window.state && state.step === 3) fillSummaryFinal(); }, 0);
-      setTimeout(function(){ updateMainPrices(); updateDateFields(); }, 120);
+      setTimeout(function(){ syncDonorFormFields(); updateMainPrices(); updateDateFields(); if(window.state && state.step === 3) fillSummaryFinal(); }, 0);
+      setTimeout(function(){ syncDonorFormFields(); updateMainPrices(); updateDateFields(); }, 120);
     };
   }
+
+  document.addEventListener('input', function(event){
+    const id = event.target && event.target.id;
+    if(id && ['fullName','donorName','firstName','lastName','streetAddress','city','stateRegion','zipCode','country','address'].includes(id)){
+      syncDonorFormFields();
+    }
+  });
 
   function boot(){
     updateMainPrices();

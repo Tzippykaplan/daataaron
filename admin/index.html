@@ -1713,9 +1713,20 @@
     del: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>'
   };
 
+  function donorNameValue(d) {
+    return String((d && (d.donorName || d.honoreeName || d.deceasedName || '')) || '').trim();
+  }
+
+  function donorSummaryText(d) {
+    const memorial = [ndaHebDayText(d.hebDay), d.hebMonth].filter(Boolean).join(' ב');
+    const catText = ndaCatsText(d);
+    const base = [memorial, catText].filter(Boolean).join(' · ') || (d.deceasedName || '—');
+    const donorName = donorNameValue(d);
+    return donorName ? `${base} · שם המתרים: ${donorName}` : base;
+  }
+
   function donorRow(d) {
-    const memorial = [d.hebDay, d.hebMonth].filter(Boolean).join(' ב');
-    const sub = [memorial, d.category].filter(Boolean).join(' · ') || (d.deceasedName || '—');
+    const subText = donorSummaryText(d);
     const overdue = d.status !== 'paid' && daysSince(d.createdAt) > 30;
     const text = encodeURIComponent(reminderText(d));
     const subj = encodeURIComponent(reminderSubject());
@@ -1726,7 +1737,7 @@
         <div class="donor-avatar">${escapeHtml(initials(d.fullName))}</div>
         <div class="donor-info">
           <div class="donor-name">${escapeHtml(d.fullName)} ${statusBadge(d.status)}${overdue ? '<span class="badge badge-overdue">איחור 30+</span>' : ''}</div>
-          <div class="donor-sub">${escapeHtml(sub)}</div>
+          <div class="donor-sub">${escapeHtml(subText)}</div>
         </div>
         <div class="donor-amount">${fmtDonorMoney(d)}</div>
         <div class="donor-actions">
@@ -1947,11 +1958,13 @@
       const subj = encodeURIComponent(reminderSubject());
       const waUrl = d.phone ? `https://wa.me/${cleanPhone(d.phone)}?text=${text}` : '';
       const mailUrl = d.email ? `mailto:${d.email}?subject=${subj}&body=${text}` : '';
+      const donorName = donorNameValue(d);
+      const subText = donorName ? `${escapeHtml(d.category||'')} · ${fmtDonorMoney(d)} · שם המתרים: ${escapeHtml(donorName)}` : `${escapeHtml(d.category||'')} · ${fmtDonorMoney(d)}`;
       return `<div class="donor">
         <div class="donor-avatar">${escapeHtml(initials(d.fullName))}</div>
         <div class="donor-info">
           <div class="donor-name">${escapeHtml(d.fullName)} <span class="badge badge-overdue">${days} יום</span></div>
-          <div class="donor-sub">${escapeHtml(d.category||'')} · ${fmtDonorMoney(d)}</div>
+          <div class="donor-sub">${subText}</div>
         </div>
         <div class="donor-actions">
           ${d.phone ? `<a href="${waUrl}" target="_blank" rel="noopener noreferrer" class="act-wa" title="WhatsApp">${SVG.wa}</a>` : ''}
@@ -2361,11 +2374,13 @@ function json(obj) {
             const subj = encodeURIComponent(reminderSubject());
             const waUrl = d.phone ? `https://wa.me/${cleanPhone(d.phone)}?text=${text}` : '';
             const mailUrl = d.email ? `mailto:${d.email}?subject=${subj}&body=${text}` : '';
+            const donorName = donorNameValue(d);
+            const subText = donorName ? `${fmtDonorMoney(d)} · ${escapeHtml(d.category||'')} · שם המתרים: ${escapeHtml(donorName)}` : `${fmtDonorMoney(d)} · ${escapeHtml(d.category||'')}`;
             return `<div class="donor">
               <div class="donor-avatar">${escapeHtml(initials(d.fullName))}</div>
               <div class="donor-info">
                 <div class="donor-name">${escapeHtml(d.fullName)} ${statusBadge(d.status)}</div>
-                <div class="donor-sub">${fmtDonorMoney(d)} · ${escapeHtml(d.category||'')}</div>
+                <div class="donor-sub">${subText}</div>
               </div>
               <div class="donor-actions">
                 ${waUrl ? `<a href="${waUrl}" target="_blank" rel="noopener noreferrer" class="act-wa" title="WhatsApp">${SVG.wa}</a>` : ''}
@@ -2680,9 +2695,7 @@ function json(obj) {
 
   window.donorRow = function(d){
     normalizeDonor(d);
-    const memorial = [ndaHebDayText(d.hebDay), d.hebMonth].filter(Boolean).join(' ב');
-    const catText = ndaCatsText(d);
-    const sub = [memorial, catText].filter(Boolean).join(' · ') || (d.deceasedName || '—');
+    const sub = donorSummaryText(d);
     const overdue = d.status !== 'paid' && daysSince(d.createdAt) > 30;
     const text = encodeURIComponent(reminderText(d));
     const subj = encodeURIComponent(reminderSubject());
@@ -2743,7 +2756,8 @@ function json(obj) {
   window.showDonorDetails=function(id){
     const d=donors.find(x=>x.id===id); if(!d) return; normalizeDonor(d);
     const date=[ndaHebDayText(d.hebDay),d.hebMonth].filter(Boolean).join(' ב')||'—';
-    const html=`<div class="details-grid"><div class="detail-box"><div class="detail-label">שם התורם</div><div class="detail-val">${escapeHtml(d.fullName||'—')}</div></div><div class="detail-box"><div class="detail-label">סכום</div><div class="detail-val">${fmtDonorMoney(d)}</div></div><div class="detail-box"><div class="detail-label">קטגוריות</div><div class="detail-val">${escapeHtml(ndaCatsText(d)||'—')}</div></div><div class="detail-box"><div class="detail-label">סוג הנצחה</div><div class="detail-val">${escapeHtml(d.dedicationTypeLabel||d.category||'—')}</div></div><div class="detail-box"><div class="detail-label">תאריך הנצחה</div><div class="detail-val">${escapeHtml(date)}</div></div><div class="detail-box"><div class="detail-label">סטטוס</div><div class="detail-val">${statusBadge(d.status)}</div></div><div class="detail-box"><div class="detail-label">טלפון</div><div class="detail-val">${escapeHtml(d.phone||'—')}</div></div><div class="detail-box"><div class="detail-label">דוא״ל</div><div class="detail-val">${escapeHtml(d.email||'—')}</div></div></div><div class="detail-box mt-14"><div class="detail-label">נוסח הנצחה</div><div class="detail-val">${escapeHtml(d.memoryContent||d.deceasedName||'—')}</div></div>${d.plaqueImage?`<img class="plaque-preview" src="${d.plaqueImage}" alt="לוח הנצחה">`:''}<div class="row gap-8 mt-14"><button class="btn btn-primary" onclick="closeModal();editDonor('${id}')">עריכה</button><button class="btn btn-accent" onclick="sendDedicationDayEmail('${id}')">שליחת מייל יום ההנצחה</button></div>`;
+    const donorName = donorNameValue(d) || '—';
+    const html=`<div class="details-grid"><div class="detail-box"><div class="detail-label">שם התורם</div><div class="detail-val">${escapeHtml(d.fullName||'—')}</div></div><div class="detail-box"><div class="detail-label">שם המתרים</div><div class="detail-val">${escapeHtml(donorName)}</div></div><div class="detail-box"><div class="detail-label">סכום</div><div class="detail-val">${fmtDonorMoney(d)}</div></div><div class="detail-box"><div class="detail-label">קטגוריות</div><div class="detail-val">${escapeHtml(ndaCatsText(d)||'—')}</div></div><div class="detail-box"><div class="detail-label">סוג הנצחה</div><div class="detail-val">${escapeHtml(d.dedicationTypeLabel||d.category||'—')}</div></div><div class="detail-box"><div class="detail-label">תאריך הנצחה</div><div class="detail-val">${escapeHtml(date)}</div></div><div class="detail-box"><div class="detail-label">סטטוס</div><div class="detail-val">${statusBadge(d.status)}</div></div><div class="detail-box"><div class="detail-label">טלפון</div><div class="detail-val">${escapeHtml(d.phone||'—')}</div></div><div class="detail-box"><div class="detail-label">דוא״ל</div><div class="detail-val">${escapeHtml(d.email||'—')}</div></div></div><div class="detail-box mt-14"><div class="detail-label">נוסח הנצחה</div><div class="detail-val">${escapeHtml(d.memoryContent||d.deceasedName||'—')}</div></div>${d.plaqueImage?`<img class="plaque-preview" src="${d.plaqueImage}" alt="לוח הנצחה">`:''}<div class="row gap-8 mt-14"><button class="btn btn-primary" onclick="closeModal();editDonor('${id}')">עריכה</button><button class="btn btn-accent" onclick="sendDedicationDayEmail('${id}')">שליחת מייל יום ההנצחה</button></div>`;
     openModal('פרטי הנצחה ותרומה',html);
   };
   window.uploadPlaqueImage=function(id){
@@ -3520,15 +3534,18 @@ function json(obj) {
   function donationDateText(d){ const dt = parseDonationDate(d); return dt ? dt.toLocaleDateString('he-IL') : 'ללא תאריך'; }
   function donationRow(d){
     const f = donationFrequency(d);
+    const donorName = donorNameValue(d);
     const meta = [
       '<span class="income-badge source">' + escapeHtml(sourceLabel(d)) + '</span>',
       '<span class="income-badge ' + (f.key === 'recurring' ? 'recurring' : 'one-time') + '">' + escapeHtml(f.label) + '</span>',
       '<span>תאריך תרומה: ' + escapeHtml(donationDateText(d)) + '</span>'
     ].join('');
+    const donorMeta = donorName ? '<div class="income-meta"><span>שם המתרים: ' + escapeHtml(donorName) + '</span></div>' : '';
     return '<div class="income-row" onclick="showDonorDetails(\'' + escapeHtml(d.id || '') + '\')">' +
       '<div class="income-avatar">' + escapeHtml(initialsSafe(d.fullName || '')) + '</div>' +
       '<div><div class="income-name">' + escapeHtml(d.fullName || 'תורם ללא שם') + '</div>' +
       '<div class="income-meta">' + meta + '</div>' +
+      donorMeta +
       '<div class="income-meta"><span>' + escapeHtml(d.category || 'ללא קטגוריה') + '</span>' + (d.notes ? '<span>· ' + escapeHtml(String(d.notes).slice(0,70)) + '</span>' : '') + '</div></div>' +
       '<div class="income-amount">' + fmtAmount(amountForCurrentMonth(d), typeof donorCurrency === 'function' ? donorCurrency(d) : (d.currency || 'USD')) + '</div>' +
       '</div>';
