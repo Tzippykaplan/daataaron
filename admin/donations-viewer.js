@@ -53,75 +53,12 @@
     return String((d && d.currency) || 'USD').toUpperCase() === 'ILS' ? 'ILS' : 'USD';
   }
 
-  function fmtCurrencyAmount(value, currency) {
-    const symbol = currency === 'ILS' ? '₪' : '$';
-    return symbol + num(value).toLocaleString('en-US');
-  }
-
-  function installmentCountSafe(d) {
-    const raw = rawNedarimSafe(d);
-    const value = firstNonEmpty(d, [
-      'paymentInstallments', 'installments', 'tashlumim', 'tashloumim', 'Tashlumim', 'Tashloumim', 'paymentsCount'
-    ]) || firstNonEmpty(raw, [
-      'Tashlumim', 'Tashloumim', 'tashlumim', 'tashloumim', 'Payments', 'payments', 'TashlumimCount', 'TashloumimCount'
-    ]);
-    const n = Number(String(value || '').replace(/[^0-9]/g, ''));
-    return Number.isFinite(n) && n > 0 ? Math.round(n) : 1;
-  }
-
-  function rawAmountSafe(d) {
-    const raw = rawNedarimSafe(d);
-    return num(firstNonEmpty(raw, ['Amount','amount']) || (raw.Value && raw.Value.Amount) || (raw.value && raw.value.Amount));
-  }
-
-  function nonRecurringTotalSafe(d) {
-    const installments = installmentCountSafe(d);
-    const rawAmount = rawAmountSafe(d);
-    const amount = num((d && (d.amount || d.chargedAmount || d.currentMonthAmount)) || 0);
-    const rawTotal = num(d && (d.totalCommitment || d.totalDonationAmount || d.totalAmount || d.pledgeAmount));
-    const base = rawAmount || amount || rawTotal;
-    // A previous version mistakenly saved totalCommitment = amount × installments.
-    // For Nedarim one-time installments, Amount is already the total transaction amount.
-    if (installments > 1 && base > 0 && rawTotal > base && Math.abs(rawTotal - base * installments) < 0.01) return base;
-    return base || rawTotal;
-  }
-
-  function monthlyChargeSafe(d) {
-    if (!isRecurringDonation(d) && installmentCountSafe(d) > 1) {
-      return nonRecurringTotalSafe(d);
-    }
-    return num((d && (d.chargedAmount || d.currentMonthAmount || d.installmentAmount || d.monthlyAmount || d.amount)) || 0);
-  }
-
-  function singleInstallmentSafe(d) {
-    const installments = installmentCountSafe(d);
-    const total = nonRecurringTotalSafe(d);
-    if (!isRecurringDonation(d) && installments > 1 && total > 0) return Math.round((total / installments) * 100) / 100;
-    return monthlyChargeSafe(d);
-  }
-
-  function totalCommitmentSafe(d) {
-    const rawTotal = num(d && (d.totalCommitment || d.totalDonationAmount || d.totalAmount || d.pledgeAmount));
-    const monthly = monthlyChargeSafe(d);
-    if (isRecurringDonation(d)) return rawTotal || monthly;
-    return nonRecurringTotalSafe(d) || monthly;
-  }
-
   function fmtAmountSafe(d) {
-    const c = donorCurrencySafe(d);
-    if (!isRecurringDonation(d) && installmentCountSafe(d) > 1) return fmtCurrencyAmount(totalCommitmentSafe(d), c);
     if (typeof window.fmtDonorMoney === 'function') return window.fmtDonorMoney(d);
-    return fmtCurrencyAmount(monthlyChargeSafe(d), c);
+    const c = donorCurrencySafe(d);
+    const symbol = c === 'ILS' ? '₪' : '$';
+    return symbol + num(d && d.amount).toLocaleString('en-US');
   }
-
-  function paymentDetailsTextSafe(d) {
-    if (isRecurringDonation(d)) {
-      const left = kevaTashlumimValue(d);
-      return left ? t('יתרת תשלומים: ', 'Remaining payments: ') + left : '—';
-    }
-    return '—';
-  }
-
 
   function statusLabelSafe(status) {
     if (typeof window.statusLabel === 'function') return window.statusLabel(status);
@@ -134,6 +71,33 @@
     return '<span class="badge ' + cls + '">' + safe(statusLabelSafe(status)) + '</span>';
   }
 
+  function kevaRemainingSafe(d) {
+    if (!d) return '';
+    function digits(v){
+      if(v == null) return '';
+      if(typeof v === 'number' && Number.isFinite(v)) return String(Math.max(0, Math.trunc(v)));
+      if(typeof v !== 'string') return '';
+      const m=v.trim().match(/^\d{1,6}$/); if(m) return m[0];
+      const l=v.match(/(?:יתרת\s*(?:חיובים|תשלומים|חיוב)|remaining\s*(?:payments|installments|charges)|keva\s*tashl(?:u|ou)mim)\D{0,12}(\d{1,6})/i); return l?l[1]:'';
+    }
+    const seen=new Set();
+    function walk(v,depth){
+      if(depth>10||v==null) return '';
+      if(typeof v==='string'){ const t=v.trim(); if(/^[\[{]/.test(t)){try{return walk(JSON.parse(t),depth+1)}catch(e){}} return ''; }
+      if(typeof v!=='object'||seen.has(v)) return ''; seen.add(v);
+      for(const [k,val] of Object.entries(v)){
+        const nk=String(k).replace(/[^a-zA-Z0-9א-ת]/g,'').toLowerCase();
+        const clear=(/remaining/.test(nk)&&/(payment|installment|charge)/.test(nk))||(/yitrat|yitra/.test(nk)&&/(tash|chiyuv|hiyuv|hiuv)/.test(nk))||(/keva/.test(nk)&&/tash/.test(nk))||(/יתרת|יתרה/.test(nk)&&/(תשלום|חיוב)/.test(nk));
+        if(clear){const n=digits(val);if(n!=='')return n;}
+      }
+      for(const x of Object.values(v)){const n=walk(x,depth+1);if(n!=='')return n;} return '';
+    }
+    const n=walk(d,0); return n!==''?n:digits(String(d.notes||''));
+  }
+  function isRecurringSafe(d){
+    const raw=[d&&d.donationFrequency,d&&d.donationFrequencyLabel,d&&d.paymentType,d&&d.paymentTypeRaw,d&&d.source,d&&d.notes].filter(Boolean).join(' ').toLowerCase();
+    return /recurring|(^|[^a-z])hk([^a-z]|$)|הוראת\s*קבע|קבע|keva|horaat/.test(raw);
+  }
   function parseDateSafe(d) {
     const value = d && (d.paymentDate || d.createdAt || d.date);
     if (!value) return null;
@@ -157,114 +121,9 @@
   }
 
   function notesSafe(d) {
-    return String((d && (d.notes || d.memoryContent || '')) || '').trim();
-  }
-
-  function firstNonEmpty(obj, keys) {
-    if (!obj) return '';
-    for (let i = 0; i < keys.length; i++) {
-      const value = obj[keys[i]];
-      if (value !== undefined && value !== null && String(value).trim() !== '') return value;
-    }
-    return '';
-  }
-
-  function rawNedarimSafe(d) {
-    if (!d) return {};
-    const raw = d.rawNedarim || d.nedarimRaw || d.raw || d.paymentTransaction || d.transaction || {};
-    if (raw && typeof raw === 'object') return raw;
-    if (typeof raw === 'string') {
-      try { return JSON.parse(raw); } catch (e) { return {}; }
-    }
-    return {};
-  }
-
-  function paymentTypeRawSafe(d) {
-    const raw = rawNedarimSafe(d);
-    return String(firstNonEmpty(d, [
-      'paymentType',
-      'donationType',
-      'chargeType',
-      'paymentMethodType',
-      'sourcePaymentType',
-      'nedarimPaymentType'
-    ]) || firstNonEmpty(raw, [
-      'PaymentType',
-      'paymentType',
-      'TransactionType',
-      'transactionType',
-      'Type',
-      'type'
-    ]) || '').trim();
-  }
-
-  function isRecurringDonation(d) {
-    const raw = rawNedarimSafe(d);
-    const joined = [
-      paymentTypeRawSafe(d),
-      firstNonEmpty(d, ['recurringType', 'paymentLabel', 'paymentTypeLabel', 'donationTypeLabel', 'donationFrequency', 'donationFrequencyLabel', 'source', 'notes', 'id', 'orderRef', 'KevaId', 'kevaId']),
-      firstNonEmpty(raw, ['PaymentTypeName', 'PaymentTypeText', 'TransactionTypeName', 'TransactionTypeText', 'PaymentType', 'TransactionType', 'Type', 'KevaId', 'KevaID', 'HoraatKevaId', 'HoraaId', 'KevaTashlumim', 'YitratTashloumim'])
-    ].join(' ').toLowerCase();
-
-    return Boolean(
-      d && (d.isRecurring || d.recurring || d.isKeva || d.keva || d.kevaId || d.KevaId)
-    ) ||
-      joined.includes('hk') ||
-      joined.includes('keva') ||
-      joined.includes('recurring') ||
-      joined.includes('standing') ||
-      joined.includes('horaat') ||
-      joined.includes('הוראת') ||
-      joined.includes('קבע') ||
-      kevaTashlumimValue(d) !== '';
-  }
-
-  function kevaTashlumimValue(d) {
-    const raw = rawNedarimSafe(d);
-    const value = firstNonEmpty(d, [
-      'KevaTashlumim',
-      'kevaTashlumim',
-      'KevaTashloumim',
-      'kevaTashloumim',
-      'remainingPayments',
-      'remainingInstallments',
-      'remainingCharges',
-      'kevaRemainingPayments'
-    ]) || firstNonEmpty(raw, [
-      'KevaTashlumim',
-      'kevaTashlumim',
-      'KevaTashloumim',
-      'kevaTashloumim',
-      'YitratTashloumim',
-      'YitratTashlumim',
-      'Yitra',
-      'RemainingPayments',
-      'remainingPayments',
-      'remainingInstallments',
-      'remainingCharges',
-      'TashlumimLeft',
-      'tashlumimLeft'
-    ]);
-
-    if (value !== undefined && value !== null && String(value).trim() !== '') {
-      const str = String(value).trim();
-      const digits = str.replace(/[^0-9]/g, '');
-      if (digits !== '') return digits;
-    }
-    const notes = String((d && d.notes) || '');
-    const m = notes.match(/(?:יתרת\s*(?:תשלומים|חיובים)|נותרו|remaining\s*(?:payments|installments|charges))\D{0,20}(\d+)/i);
-    return m ? m[1] : '';
-  }
-
-  function donationTypeLabelSafe(d) {
-    if (isRecurringDonation(d)) return t('הוראת קבע', 'Recurring');
-    return t('חד פעמית', 'One-time');
-  }
-
-  function kevaTashlumimTextSafe(d) {
-    if (!isRecurringDonation(d)) return '—';
-    const value = kevaTashlumimValue(d);
-    return value ? value : '—';
+    const base = String((d && (d.notes || d.memoryContent || '')) || '').trim();
+    const remaining = isRecurringSafe(d) ? kevaRemainingSafe(d) : '';
+    return [base, remaining !== '' ? 'יתרת תשלומים: ' + remaining : ''].filter(Boolean).join(' · ');
   }
 
   function normalizeRows() {
@@ -279,9 +138,6 @@
         status: String((d && d.status) || 'unpaid'),
         receipt: receiptSafe(d),
         notes: notesSafe(d),
-        paymentTypeText: donationTypeLabelSafe(d),
-        kevaTashlumimText: kevaTashlumimTextSafe(d),
-        paymentDetailsText: paymentDetailsTextSafe(d),
         dateObj: parseDateSafe(d),
         dateText: formatDateSafe(d)
       };
@@ -325,14 +181,8 @@
           r.currency,
           r.dateText,
           statusLabelSafe(r.status),
-          r.paymentTypeText,
-          r.kevaTashlumimText,
-          r.paymentDetailsText,
           r.receipt,
-          r.notes,
-          r.paymentTypeText,
-          r.kevaTashlumimText,
-          r.paymentDetailsText
+          r.notes
         ].join(' ').toLowerCase();
         if (!corpus.includes(g)) return false;
       }
@@ -407,8 +257,6 @@
           '<td>' + safe(r.dateText || '—') + '</td>' +
           '<td>' + safe(r.fundraiserName || '—') + '</td>' +
           '<td>' + statusBadgeSafe(r.status) + '</td>' +
-          '<td>' + safe(r.paymentTypeText || '—') + '</td>' +
-          '<td>' + safe(r.paymentDetailsText || '—') + '</td>' +
           '<td>' + safe(r.receipt || '—') + '</td>' +
           '<td class="donations-notes-cell">' + safe(r.notes || '—') + '</td>' +
         '</tr>'
@@ -616,8 +464,6 @@
                   '<th scope="col">' + safe(t('תאריך תרומה', 'Donation Date')) + '</th>' +
                   '<th scope="col">' + safe(t('שם מתרים', 'Fundraiser Name')) + '</th>' +
                   '<th scope="col">' + safe(t('סטטוס', 'Status')) + '</th>' +
-                  '<th scope="col">' + safe(t('סוג תרומה', 'Donation Type')) + '</th>' +
-                  '<th scope="col">' + safe(t('יתרת תשלומים', 'Remaining Payments')) + '</th>' +
                   '<th scope="col">' + safe(t('קבלה / מזהה', 'Receipt / ID')) + '</th>' +
                   '<th scope="col">' + safe(t('הערות', 'Notes')) + '</th>' +
                 '</tr>' +
