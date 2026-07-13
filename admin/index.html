@@ -3519,6 +3519,15 @@ function json(obj) {
       if (!d.donationFrequencyLabel) { d.donationFrequencyLabel = f.label; changed = true; }
       if (!d.paymentType && f.key === 'recurring') { d.paymentType = 'HK'; changed = true; }
       if (!d.paymentType && f.key !== 'recurring') { d.paymentType = 'Ragil'; changed = true; }
+      if (f.key === 'recurring') {
+        const kv = explicitKevaTashlumimValue(d);
+        if (kv !== '') {
+          if (String(d.kevaTashlumim || '') !== String(kv)) { d.kevaTashlumim = kv; changed = true; }
+          if (String(d.KevaTashlumim || '') !== String(kv)) { d.KevaTashlumim = kv; changed = true; }
+          if (String(d.remainingPayments || '') !== String(kv)) { d.remainingPayments = kv; changed = true; }
+          if (String(d.remainingInstallments || '') !== String(kv)) { d.remainingInstallments = kv; changed = true; }
+        }
+      }
       const looksNedarim = /nedarim|נדרים/i.test([d.source, d.paymentProcessor, d.processor, d.notes, d.category].filter(Boolean).join(' '));
       if (looksNedarim) {
         const parsed = parseDonationDate(d);
@@ -3546,6 +3555,31 @@ function json(obj) {
     });
     if (changed && typeof saveData === 'function') saveData();
   }
+  function explicitKevaTashlumimValue(d){
+    d = d || {};
+    const r = d.rawNedarim || d.raw || d.nedarim || {};
+    const candidates = [
+      d.KevaTashlumim, d.kevaTashlumim, d.remainingPayments, d.remainingInstallments, d.remainingCharges,
+      r.KevaTashlumim, r.kevaTashlumim, r.YitratTashloumim, r.YitratTashlumim, r.remainingPayments, r.remainingInstallments
+    ];
+    for (const v of candidates) {
+      if (v === null || v === undefined) continue;
+      const str = String(v).trim();
+      if (str === '') continue;
+      // KevaTashlumim is the remaining number of payments, so 0 is a valid value if Nedarim returns it.
+      const digits = str.replace(/[^0-9]/g, '');
+      return digits !== '' ? digits : str;
+    }
+    return '';
+  }
+  function kevaTashlumimText(d){
+    const f = donationFrequency(d);
+    const v = explicitKevaTashlumimValue(d);
+    return (f.key === 'recurring' && v !== '') ? ('יתרת תשלומים: ' + v) : '';
+  }
+  window.ndaKevaTashlumimValue = explicitKevaTashlumimValue;
+  window.ndaKevaTashlumimText = kevaTashlumimText;
+
   function donationDateText(d){ const dt = parseDonationDate(d); return dt ? dt.toLocaleDateString('he-IL') : 'ללא תאריך'; }
   function donationRow(d){
     const f = donationFrequency(d);
@@ -3553,7 +3587,8 @@ function json(obj) {
     const meta = [
       '<span class="income-badge source">' + escapeHtml(sourceLabel(d)) + '</span>',
       '<span class="income-badge ' + (f.key === 'recurring' ? 'recurring' : 'one-time') + '">' + escapeHtml(f.label) + '</span>',
-      '<span>תאריך תרומה: ' + escapeHtml(donationDateText(d)) + '</span>'
+      '<span>תאריך תרומה: ' + escapeHtml(donationDateText(d)) + '</span>',
+      kevaTashlumimText(d) ? '<span class="income-badge recurring">' + escapeHtml(kevaTashlumimText(d)) + '</span>' : ''
     ].join('');
     const donorMeta = donorName ? '<div class="income-meta"><span>שם המתרים: ' + escapeHtml(donorName) + '</span></div>' : '';
     return '<div class="income-row" onclick="showDonorDetails(\'' + escapeHtml(d.id || '') + '\')">' +
@@ -3686,6 +3721,14 @@ function json(obj) {
       box.innerHTML = '<div class="detail-label">סוג תרומה</div><div class="detail-val">' + escapeHtml(f.label + ' · ' + sourceLabel(d)) + '</div>';
       const grid = body.querySelector('.detail-grid') || body;
       grid.appendChild(box);
+      const kvText = kevaTashlumimText(d);
+      if (kvText && !body.querySelector('[data-keva-tashlumim-box]')) {
+        const kvBox = document.createElement('div');
+        kvBox.className = 'detail-box';
+        kvBox.setAttribute('data-keva-tashlumim-box','1');
+        kvBox.innerHTML = '<div class="detail-label">יתרת תשלומים בהוראת קבע</div><div class="detail-val">' + escapeHtml(explicitKevaTashlumimValue(d)) + '</div>';
+        grid.appendChild(kvBox);
+      }
     }, 0);
   };
   const oldImport = window.importNedarimExternalDonations;
