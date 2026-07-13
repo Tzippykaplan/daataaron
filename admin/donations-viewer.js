@@ -69,21 +69,42 @@
     return Number.isFinite(n) && n > 0 ? Math.round(n) : 1;
   }
 
+  function rawAmountSafe(d) {
+    const raw = rawNedarimSafe(d);
+    return num(firstNonEmpty(raw, ['Amount','amount']) || (raw.Value && raw.Value.Amount) || (raw.value && raw.value.Amount));
+  }
+
+  function nonRecurringTotalSafe(d) {
+    const installments = installmentCountSafe(d);
+    const rawAmount = rawAmountSafe(d);
+    const amount = num((d && (d.amount || d.chargedAmount || d.currentMonthAmount)) || 0);
+    const rawTotal = num(d && (d.totalCommitment || d.totalDonationAmount || d.totalAmount || d.pledgeAmount));
+    const base = rawAmount || amount || rawTotal;
+    // A previous version mistakenly saved totalCommitment = amount × installments.
+    // For Nedarim one-time installments, Amount is already the total transaction amount.
+    if (installments > 1 && base > 0 && rawTotal > base && Math.abs(rawTotal - base * installments) < 0.01) return base;
+    return base || rawTotal;
+  }
+
   function monthlyChargeSafe(d) {
+    if (!isRecurringDonation(d) && installmentCountSafe(d) > 1) {
+      return nonRecurringTotalSafe(d);
+    }
     return num((d && (d.chargedAmount || d.currentMonthAmount || d.installmentAmount || d.monthlyAmount || d.amount)) || 0);
+  }
+
+  function singleInstallmentSafe(d) {
+    const installments = installmentCountSafe(d);
+    const total = nonRecurringTotalSafe(d);
+    if (!isRecurringDonation(d) && installments > 1 && total > 0) return Math.round((total / installments) * 100) / 100;
+    return monthlyChargeSafe(d);
   }
 
   function totalCommitmentSafe(d) {
     const rawTotal = num(d && (d.totalCommitment || d.totalDonationAmount || d.totalAmount || d.pledgeAmount));
-    const installments = installmentCountSafe(d);
     const monthly = monthlyChargeSafe(d);
     if (isRecurringDonation(d)) return rawTotal || monthly;
-    if (installments > 1) {
-      const computed = monthly * installments;
-      if (rawTotal > computed && computed > 0) return rawTotal;
-      return computed || rawTotal || monthly;
-    }
-    return rawTotal || monthly;
+    return nonRecurringTotalSafe(d) || monthly;
   }
 
   function fmtAmountSafe(d) {
@@ -94,16 +115,9 @@
   }
 
   function paymentDetailsTextSafe(d) {
-    const c = donorCurrencySafe(d);
-    const installments = installmentCountSafe(d);
     if (isRecurringDonation(d)) {
       const left = kevaTashlumimValue(d);
       return left ? t('יתרת תשלומים: ', 'Remaining payments: ') + left : '—';
-    }
-    if (installments > 1) {
-      return installments + ' ' + t('תשלומים', 'payments') + ' · ' +
-        t('חיוב: ', 'Charge: ') + fmtCurrencyAmount(monthlyChargeSafe(d), c) + ' · ' +
-        t('סה״כ: ', 'Total: ') + fmtCurrencyAmount(totalCommitmentSafe(d), c);
     }
     return '—';
   }
@@ -225,8 +239,6 @@
 
   function donationTypeLabelSafe(d) {
     if (isRecurringDonation(d)) return t('הוראת קבע', 'Recurring');
-    const installments = installmentCountSafe(d);
-    if (installments > 1) return t('חד פעמית בתשלומים', 'One-time installments');
     return t('חד פעמית', 'One-time');
   }
 
@@ -583,7 +595,7 @@
                   '<th scope="col">' + safe(t('שם מתרים', 'Fundraiser Name')) + '</th>' +
                   '<th scope="col">' + safe(t('סטטוס', 'Status')) + '</th>' +
                   '<th scope="col">' + safe(t('סוג תרומה', 'Donation Type')) + '</th>' +
-                  '<th scope="col">' + safe(t('פריסת תשלום', 'Payment Plan')) + '</th>' +
+                  '<th scope="col">' + safe(t('יתרת תשלומים', 'Remaining Payments')) + '</th>' +
                   '<th scope="col">' + safe(t('קבלה / מזהה', 'Receipt / ID')) + '</th>' +
                   '<th scope="col">' + safe(t('הערות', 'Notes')) + '</th>' +
                 '</tr>' +

@@ -3538,8 +3538,6 @@ function json(obj) {
     d = d || {};
     const raw = [d.donationFrequency, d.donationFrequencyLabel, d.paymentType, d.paymentTypeRaw, d.notes, d.rawNedarim && (d.rawNedarim.PaymentType || d.rawNedarim.TransactionType)].filter(Boolean).join(' ').toLowerCase();
     if (/recurring|(^|[^a-z])hk([^a-z]|$)|הוראת\s*קבע|קבע|standing\s*order|horaat|keva/.test(raw)) return { key:'recurring', label:'הוראת קבע' };
-    const n = typeof donorInstallments === 'function' ? donorInstallments(d) : cleanNum(d.paymentInstallments || 1);
-    if (n > 1) return { key:'one-time', label:'חד פעמית בתשלומים' };
     return { key:'one-time', label:'חד פעמית' };
   }
   window.ndaDonationFrequency = donationFrequency;
@@ -3591,7 +3589,6 @@ function json(obj) {
       const left = d.KevaTashlumim || d.kevaTashlumim || d.remainingPayments || d.remainingInstallments || d.remainingCharges || (d.rawNedarim && (d.rawNedarim.KevaTashlumim || d.rawNedarim.kevaTashlumim)) || '';
       return left ? 'יתרת תשלומים: ' + left : '';
     }
-    if (n > 1) return n + ' תשלומים · סה״כ עסקה: ' + fmtAmount(total, currency) + ' · חיוב: ' + fmtAmount(monthly, currency);
     return '';
   }
   function incomeAmountHtml(d){
@@ -3599,9 +3596,6 @@ function json(obj) {
     const n = typeof donorInstallments === 'function' ? donorInstallments(d) : cleanNum(d.paymentInstallments || 1);
     const total = typeof donorTotalCommitment === 'function' ? donorTotalCommitment(d) : cleanNum(d.totalCommitment || d.amount || 0);
     const monthly = typeof donorMonthlyCashAmount === 'function' ? donorMonthlyCashAmount(d) : amountForCurrentMonth(d);
-    if (n > 1 && !(typeof window.ndaIsRecurringDonation === 'function' && window.ndaIsRecurringDonation(d))) {
-      return '<div>' + escapeHtml(fmtAmount(monthly, currency)) + '</div><small>' + escapeHtml('סה״כ ' + fmtAmount(total, currency)) + '</small>';
-    }
     return escapeHtml(fmtAmount(amountForCurrentMonth(d), currency));
   }
   function donationRow(d){
@@ -3872,10 +3866,6 @@ function json(obj) {
           const r = raw(d);
           const left = d.KevaTashlumim || d.kevaTashlumim || d.remainingPayments || d.remainingInstallments || d.remainingCharges || r.KevaTashlumim || r.kevaTashlumim || '';
           if(left) addBox(body, 'יתרת תשלומים בהוראת קבע', String(left), 'keva-left');
-        } else if(inst > 1){
-          addBox(body, 'פריסת תשלום', inst + ' תשלומים', 'installments');
-          addBox(body, 'סכום עסקה כולל', money(total(d), c), 'total');
-          addBox(body, 'חיוב לכל תשלום', money(monthly(d), c), 'monthly');
         }
       }, 0);
     };
@@ -3883,5 +3873,133 @@ function json(obj) {
 })();
 </script>
 
+
+<script>
+/* ===== Final safe fix: Nedarim one-time installments Amount is TOTAL, not per-installment ===== */
+(function(){
+  function n(v){
+    const x = Number(String(v ?? '').replace(/[^0-9.\-]/g,''));
+    return Number.isFinite(x) ? x : 0;
+  }
+  function raw(d){
+    return (d && (d.rawNedarim || d.nedarimRaw || d.raw || d.paymentTransaction || d.transaction)) || {};
+  }
+  function rawAmount(d){
+    const r = raw(d || {});
+    return n(r.Amount || r.amount || (r.Value && r.Value.Amount) || (r.value && r.value.Amount));
+  }
+  function currency(d){
+    return typeof window.donorCurrency === 'function' ? window.donorCurrency(d) : String(d && d.currency || 'ILS').toUpperCase();
+  }
+  function money(v,c){
+    return typeof window.fmtAmount === 'function' ? window.fmtAmount(v,c) : ((c === 'USD' ? '$' : '₪') + Number(v||0).toLocaleString('he-IL'));
+  }
+  function getInstallments(d){
+    if (typeof window.donorInstallments === 'function') return Math.max(1, Math.round(n(window.donorInstallments(d)) || 1));
+    const r = raw(d || {});
+    return Math.max(1, Math.round(n(d && (d.paymentInstallments || d.installments || d.tashlumim || d.Tashlumim || d.Tashloumim) || r.Tashloumim || r.Tashlumim || r.Payments || 1) || 1));
+  }
+  function isRecurring(d){
+    return typeof window.ndaIsRecurringDonation === 'function'
+      ? window.ndaIsRecurringDonation(d)
+      : /hk|קבע|keva|recurring/i.test([d && d.paymentType, d && d.paymentTypeRaw, d && d.donationFrequency, d && d.notes, d && d.source].filter(Boolean).join(' '));
+  }
+  function baseAmount(d){
+    const ra = rawAmount(d);
+    if (ra > 0) return ra;
+    const amount = n(d && d.amount);
+    if (amount > 0) return amount;
+    const charged = n(d && d.chargedAmount);
+    if (charged > 0) return charged;
+    const current = n(d && d.currentMonthAmount);
+    if (current > 0) return current;
+    return n(d && (d.totalCommitment || d.totalDonationAmount || d.totalAmount || d.pledgeAmount));
+  }
+  function oneTimeTotal(d){
+    const inst = getInstallments(d);
+    const amount = baseAmount(d);
+    const explicit = n(d && (d.totalCommitment || d.totalDonationAmount || d.totalAmount || d.pledgeAmount));
+    // Bad previous version saved totalCommitment = amount × installments. Detect and ignore it.
+    if (inst > 1 && amount > 0 && explicit > amount && Math.abs(explicit - amount * inst) < 0.01) return amount;
+    // For normal one-time installments in Nedarim, amount is already the full transaction amount.
+    if (amount > 0) return amount;
+    return explicit;
+  }
+  function perInstallment(d){
+    const inst = getInstallments(d);
+    const total = oneTimeTotal(d);
+    if (inst > 1 && total > 0) return Math.round((total / inst) * 100) / 100;
+    return total;
+  }
+
+  const priorTotal = window.donorTotalCommitment;
+  window.donorTotalCommitment = function(d){
+    if (!d) return 0;
+    if (!isRecurring(d) && getInstallments(d) > 1) return oneTimeTotal(d);
+    if (typeof priorTotal === 'function') return priorTotal(d);
+    return n(d.totalCommitment || d.amount || d.chargedAmount);
+  };
+
+  const priorMonthly = window.donorMonthlyCashAmount;
+  window.donorMonthlyCashAmount = function(d){
+    if (!d) return 0;
+    if (!isRecurring(d) && getInstallments(d) > 1) return oneTimeTotal(d);
+    if (typeof priorMonthly === 'function') return priorMonthly(d);
+    return n(d.currentMonthAmount || d.monthlyAmount || d.installmentAmount || d.amount || d.chargedAmount);
+  };
+
+  window.donorSingleInstallmentAmount = perInstallment;
+
+  window.formatMonthlyCash = function(d){
+    const inst = getInstallments(d);
+    const c = currency(d);
+    if (!isRecurring(d) && inst > 1) {
+      return money(oneTimeTotal(d), c);
+    }
+    const val = typeof window.donorMonthlyCashAmount === 'function' ? window.donorMonthlyCashAmount(d) : baseAmount(d);
+    return money(val, c);
+  };
+
+  if (typeof renderDashboard === 'function') {
+    try { renderDashboard(); } catch(e) {}
+  }
+})();
+</script>
+
+
+<script>
+/* ===== Display policy: regular card installments are not shown; only HK/Keva shows remaining payments ===== */
+(function(){
+  function isRecurring(d){
+    const txt = [d && d.paymentType, d && d.paymentTypeRaw, d && d.donationFrequency, d && d.donationFrequencyLabel, d && d.source, d && d.notes].filter(Boolean).join(' ').toLowerCase();
+    return /hk|keva|recurring|standing|הוראת\s*קבע/.test(txt);
+  }
+  const prev = window.showDonorDetails;
+  if(typeof prev === 'function' && !window.__ndaHideRegularInstallmentsDetails){
+    window.showDonorDetails = function(id){
+      const res = prev.apply(this, arguments);
+      setTimeout(function(){
+        const list = Array.isArray(window.donors) ? window.donors : (typeof donors !== 'undefined' ? donors : []);
+        const d = (list || []).find(x => String(x.id) === String(id));
+        if(!d || isRecurring(d)) return;
+        const body = document.getElementById('modalBody');
+        if(!body) return;
+        Array.from(body.querySelectorAll('.detail-box')).forEach(function(box){
+          const txt = box.textContent || '';
+          const key = box.getAttribute('data-safe-pay-box') || '';
+          if(key === 'installments' || key === 'monthly' || txt.includes('פריסת תשלום') || txt.includes('חיוב לכל תשלום')) box.remove();
+          if(key === 'total' && txt.includes('סכום עסקה כולל')) box.remove();
+        });
+        const monthlyCash = body.querySelector('[data-monthly-cash-box] .detail-val');
+        if(monthlyCash){
+          monthlyCash.textContent = monthlyCash.textContent.replace(/\s*·\s*\d+\s*תשלומים/g, '');
+        }
+      }, 80);
+      return res;
+    };
+    window.__ndaHideRegularInstallmentsDetails = true;
+  }
+})();
+</script>
 </body>
 </html>
