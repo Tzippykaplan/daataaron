@@ -3024,8 +3024,13 @@ function json(obj) {
     }
     window.donorInstallments = function(d){
       d = d || {};
-      const tx = d.paymentTransaction || d.transaction || d.rawResponse || {};
-      let n = ndaNumber(d.paymentInstallments || d.installments || d.tashlumim || d.Tashlumim || d.tashlumimCount || d.paymentsCount || tx.Tashlumim || tx.tashlumim || (tx.Value && (tx.Value.Tashlumim || tx.Value.tashlumim)) || (tx.value && (tx.value.Tashlumim || tx.value.tashlumim)));
+      const tx = d.paymentTransaction || d.transaction || d.rawResponse || d.rawNedarim || d.nedarimRaw || d.raw || {};
+      let n = ndaNumber(
+        d.paymentInstallments || d.installments || d.tashlumim || d.Tashlumim || d.tashloumim || d.Tashloumim || d.tashlumimCount || d.tashloumimCount || d.paymentsCount ||
+        tx.Tashlumim || tx.Tashloumim || tx.tashlumim || tx.tashloumim || tx.TashloumimCount || tx.TashlumimCount || tx.Payments || tx.payments ||
+        (tx.Value && (tx.Value.Tashlumim || tx.Value.Tashloumim || tx.Value.tashlumim || tx.Value.tashloumim)) ||
+        (tx.value && (tx.value.Tashlumim || tx.value.Tashloumim || tx.value.tashlumim || tx.value.tashloumim))
+      );
       if (!n) {
         let txText = '';
         try { txText = typeof tx === 'string' ? tx : JSON.stringify(tx); } catch(e) { txText = String(tx || ''); }
@@ -3034,25 +3039,54 @@ function json(obj) {
       if (!n || n < 1) n = 1;
       return Math.max(1, Math.round(n));
     };
+    window.ndaIsRecurringDonation = function(d){
+      d = d || {};
+      const tx = d.paymentTransaction || d.transaction || d.rawResponse || d.rawNedarim || d.nedarimRaw || d.raw || {};
+      const raw = [d.donationFrequency, d.donationFrequencyLabel, d.paymentType, d.paymentTypeRaw, d.notes, d.source, tx.PaymentType, tx.TransactionType, tx.Type, tx.KevaId, tx.HoraatKevaId]
+        .filter(Boolean).join(' ').toLowerCase();
+      return /recurring|(^|[^a-z])hk([^a-z]|$)|הוראת\s*קבע|קבע|standing\s*order|horaat|keva/.test(raw);
+    };
     window.donorTotalCommitment = function(d){
       d = d || {};
-      // Important: Google Sheets may keep an old imported Nedarim value as the string "0".
-      // String "0" is truthy, so the old code used it instead of d.amount, causing the hero total to miss that donation.
-      const total = ndaNumber(d.totalCommitment);
-      if (total > 0) return total;
-      const pledge = ndaNumber(d.pledgeAmount);
-      if (pledge > 0) return pledge;
+      const n = donorInstallments(d);
+      const amount = ndaNumber(d.amount);
       const charged = ndaNumber(d.chargedAmount);
-      if (charged > 0) return charged;
-      return ndaNumber(d.amount);
+      const installment = ndaNumber(d.installmentAmount || d.monthlyAmount || d.currentMonthAmount || d.monthlyChargeAmount);
+      const explicit = ndaNumber(d.totalCommitment || d.pledgeAmount || d.totalDonation || d.totalAmount || d.fullAmount);
+      const recurring = typeof window.ndaIsRecurringDonation === 'function' && window.ndaIsRecurringDonation(d);
+      if (recurring) {
+        if (explicit > 0) return explicit;
+        if (amount > 0) return amount;
+        if (charged > 0) return charged;
+        return installment;
+      }
+      const charge = charged > 0 ? charged : (amount > 0 ? amount : installment);
+      if (n > 1) {
+        const computed = charge > 0 ? ndaRound(charge * n) : 0;
+        // Old imports sometimes saved totalCommitment as the single charge amount. In that case, recompute the real total.
+        if (explicit > computed && computed > 0) return explicit;
+        if (computed > 0) return computed;
+      }
+      if (explicit > 0) return explicit;
+      return charge;
     };
     window.donorMonthlyCashAmount = function(d){
       d = d || {};
-      const explicit = ndaNumber(d.monthlyAmount || d.installmentAmount || d.currentMonthAmount || d.monthlyChargeAmount);
-      if (explicit > 0) return explicit;
-      const total = donorTotalCommitment(d);
       const n = donorInstallments(d);
-      return n > 1 ? ndaRound(total / n) : total;
+      const recurring = typeof window.ndaIsRecurringDonation === 'function' && window.ndaIsRecurringDonation(d);
+      const amount = ndaNumber(d.amount);
+      const charged = ndaNumber(d.chargedAmount);
+      const explicit = ndaNumber(d.monthlyAmount || d.installmentAmount || d.currentMonthAmount || d.monthlyChargeAmount);
+      if (recurring) return explicit || amount || charged || donorTotalCommitment(d);
+      if (n > 1) {
+        // For Nedarim income rows, Amount is the actual charged installment, while totalCommitment is Amount × Tashloumim.
+        if (charged > 0) return charged;
+        if (amount > 0) return amount;
+        if (explicit > 0) return explicit;
+        const total = donorTotalCommitment(d);
+        return n > 1 ? ndaRound(total / n) : total;
+      }
+      return explicit || charged || amount || donorTotalCommitment(d);
     };
     window.isDonationActiveInMonth = function(d, when){
       if (!d || d.status !== 'paid') return false;
@@ -3519,15 +3553,6 @@ function json(obj) {
       if (!d.donationFrequencyLabel) { d.donationFrequencyLabel = f.label; changed = true; }
       if (!d.paymentType && f.key === 'recurring') { d.paymentType = 'HK'; changed = true; }
       if (!d.paymentType && f.key !== 'recurring') { d.paymentType = 'Ragil'; changed = true; }
-      if (f.key === 'recurring') {
-        const kv = explicitKevaTashlumimValue(d);
-        if (kv !== '') {
-          if (String(d.kevaTashlumim || '') !== String(kv)) { d.kevaTashlumim = kv; changed = true; }
-          if (String(d.KevaTashlumim || '') !== String(kv)) { d.KevaTashlumim = kv; changed = true; }
-          if (String(d.remainingPayments || '') !== String(kv)) { d.remainingPayments = kv; changed = true; }
-          if (String(d.remainingInstallments || '') !== String(kv)) { d.remainingInstallments = kv; changed = true; }
-        }
-      }
       const looksNedarim = /nedarim|נדרים/i.test([d.source, d.paymentProcessor, d.processor, d.notes, d.category].filter(Boolean).join(' '));
       if (looksNedarim) {
         const parsed = parseDonationDate(d);
@@ -3555,41 +3580,40 @@ function json(obj) {
     });
     if (changed && typeof saveData === 'function') saveData();
   }
-  function explicitKevaTashlumimValue(d){
-    d = d || {};
-    const r = d.rawNedarim || d.raw || d.nedarim || {};
-    const candidates = [
-      d.KevaTashlumim, d.kevaTashlumim, d.remainingPayments, d.remainingInstallments, d.remainingCharges,
-      r.KevaTashlumim, r.kevaTashlumim, r.YitratTashloumim, r.YitratTashlumim, r.remainingPayments, r.remainingInstallments
-    ];
-    for (const v of candidates) {
-      if (v === null || v === undefined) continue;
-      const str = String(v).trim();
-      if (str === '') continue;
-      // KevaTashlumim is the remaining number of payments, so 0 is a valid value if Nedarim returns it.
-      const digits = str.replace(/[^0-9]/g, '');
-      return digits !== '' ? digits : str;
+  function donationDateText(d){ const dt = parseDonationDate(d); return dt ? dt.toLocaleDateString('he-IL') : 'ללא תאריך'; }
+  function paymentPlanText(d){
+    const f = donationFrequency(d);
+    const n = typeof donorInstallments === 'function' ? donorInstallments(d) : cleanNum(d.paymentInstallments || 1);
+    const currency = typeof donorCurrency === 'function' ? donorCurrency(d) : (d.currency || 'USD');
+    const total = typeof donorTotalCommitment === 'function' ? donorTotalCommitment(d) : cleanNum(d.totalCommitment || d.amount || 0);
+    const monthly = typeof donorMonthlyCashAmount === 'function' ? donorMonthlyCashAmount(d) : cleanNum(d.currentMonthAmount || d.amount || 0);
+    if (f.key === 'recurring') {
+      const left = d.KevaTashlumim || d.kevaTashlumim || d.remainingPayments || d.remainingInstallments || d.remainingCharges || (d.rawNedarim && (d.rawNedarim.KevaTashlumim || d.rawNedarim.kevaTashlumim)) || '';
+      return left ? 'יתרת תשלומים: ' + left : '';
     }
+    if (n > 1) return n + ' תשלומים · סה״כ עסקה: ' + fmtAmount(total, currency) + ' · חיוב: ' + fmtAmount(monthly, currency);
     return '';
   }
-  function kevaTashlumimText(d){
-    const f = donationFrequency(d);
-    const v = explicitKevaTashlumimValue(d);
-    return (f.key === 'recurring' && v !== '') ? ('יתרת תשלומים: ' + v) : '';
+  function incomeAmountHtml(d){
+    const currency = typeof donorCurrency === 'function' ? donorCurrency(d) : (d.currency || 'USD');
+    const n = typeof donorInstallments === 'function' ? donorInstallments(d) : cleanNum(d.paymentInstallments || 1);
+    const total = typeof donorTotalCommitment === 'function' ? donorTotalCommitment(d) : cleanNum(d.totalCommitment || d.amount || 0);
+    const monthly = typeof donorMonthlyCashAmount === 'function' ? donorMonthlyCashAmount(d) : amountForCurrentMonth(d);
+    if (n > 1 && !(typeof window.ndaIsRecurringDonation === 'function' && window.ndaIsRecurringDonation(d))) {
+      return '<div>' + escapeHtml(fmtAmount(monthly, currency)) + '</div><small>' + escapeHtml('סה״כ ' + fmtAmount(total, currency)) + '</small>';
+    }
+    return escapeHtml(fmtAmount(amountForCurrentMonth(d), currency));
   }
-  window.ndaKevaTashlumimValue = explicitKevaTashlumimValue;
-  window.ndaKevaTashlumimText = kevaTashlumimText;
-
-  function donationDateText(d){ const dt = parseDonationDate(d); return dt ? dt.toLocaleDateString('he-IL') : 'ללא תאריך'; }
   function donationRow(d){
     const f = donationFrequency(d);
     const donorName = donorNameValue(d);
+    const plan = paymentPlanText(d);
     const meta = [
       '<span class="income-badge source">' + escapeHtml(sourceLabel(d)) + '</span>',
       '<span class="income-badge ' + (f.key === 'recurring' ? 'recurring' : 'one-time') + '">' + escapeHtml(f.label) + '</span>',
-      '<span>תאריך תרומה: ' + escapeHtml(donationDateText(d)) + '</span>',
-      kevaTashlumimText(d) ? '<span class="income-badge recurring">' + escapeHtml(kevaTashlumimText(d)) + '</span>' : ''
-    ].join('');
+      plan ? '<span class="income-plan-detail">' + escapeHtml(plan) + '</span>' : '',
+      '<span>תאריך תרומה: ' + escapeHtml(donationDateText(d)) + '</span>'
+    ].filter(Boolean).join('');
     const donorMeta = donorName ? '<div class="income-meta"><span>שם המתרים: ' + escapeHtml(donorName) + '</span></div>' : '';
     return '<div class="income-row" onclick="showDonorDetails(\'' + escapeHtml(d.id || '') + '\')">' +
       '<div class="income-avatar">' + escapeHtml(initialsSafe(d.fullName || '')) + '</div>' +
@@ -3597,7 +3621,7 @@ function json(obj) {
       '<div class="income-meta">' + meta + '</div>' +
       donorMeta +
       '<div class="income-meta"><span>' + escapeHtml(d.category || 'ללא קטגוריה') + '</span>' + (d.notes ? '<span>· ' + escapeHtml(String(d.notes).slice(0,70)) + '</span>' : '') + '</div></div>' +
-      '<div class="income-amount">' + fmtAmount(amountForCurrentMonth(d), typeof donorCurrency === 'function' ? donorCurrency(d) : (d.currency || 'USD')) + '</div>' +
+      '<div class="income-amount">' + incomeAmountHtml(d) + '</div>' +
       '</div>';
   }
   function ensureDashboardLayout(){
@@ -3721,14 +3745,6 @@ function json(obj) {
       box.innerHTML = '<div class="detail-label">סוג תרומה</div><div class="detail-val">' + escapeHtml(f.label + ' · ' + sourceLabel(d)) + '</div>';
       const grid = body.querySelector('.detail-grid') || body;
       grid.appendChild(box);
-      const kvText = kevaTashlumimText(d);
-      if (kvText && !body.querySelector('[data-keva-tashlumim-box]')) {
-        const kvBox = document.createElement('div');
-        kvBox.className = 'detail-box';
-        kvBox.setAttribute('data-keva-tashlumim-box','1');
-        kvBox.innerHTML = '<div class="detail-label">יתרת תשלומים בהוראת קבע</div><div class="detail-val">' + escapeHtml(explicitKevaTashlumimValue(d)) + '</div>';
-        grid.appendChild(kvBox);
-      }
     }, 0);
   };
   const oldImport = window.importNedarimExternalDonations;
@@ -3815,6 +3831,57 @@ function json(obj) {
 </script>
 
 <!-- <script src="./donations-viewer.js"></script> -->
+
+
+<script>
+/* ===== Safe patch: show regular-installment totals and Keva remaining payments ===== */
+(function(){
+  function n(v){ const x = Number(String(v ?? '').replace(/[^0-9.\-]/g,'')); return Number.isFinite(x) ? x : 0; }
+  function raw(d){ return (d && (d.rawNedarim || d.nedarimRaw || d.raw)) || {}; }
+  function getInstallments(d){
+    if (typeof window.donorInstallments === 'function') return window.donorInstallments(d);
+    const r = raw(d || {});
+    return Math.max(1, Math.round(n(d.paymentInstallments || d.installments || d.Tashlumim || d.Tashloumim || r.Tashlumim || r.Tashloumim || 1)));
+  }
+  function isRecurring(d){ return typeof window.ndaIsRecurringDonation === 'function' ? window.ndaIsRecurringDonation(d) : /hk|קבע|keva/i.test([d.paymentType,d.paymentTypeRaw,d.donationFrequency,d.notes].filter(Boolean).join(' ')); }
+  function currency(d){ return typeof window.donorCurrency === 'function' ? window.donorCurrency(d) : (d.currency || 'ILS'); }
+  function money(v,c){ return typeof window.fmtAmount === 'function' ? window.fmtAmount(v,c) : ((c === 'ILS' ? '₪' : '$') + Number(v||0).toLocaleString('he-IL')); }
+  function total(d){ return typeof window.donorTotalCommitment === 'function' ? window.donorTotalCommitment(d) : n(d.totalCommitment || d.amount); }
+  function monthly(d){ return typeof window.donorMonthlyCashAmount === 'function' ? window.donorMonthlyCashAmount(d) : n(d.currentMonthAmount || d.amount); }
+  function addBox(body,label,value,key){
+    if(!body || body.querySelector('[data-safe-pay-box="'+key+'"]')) return;
+    const box = document.createElement('div');
+    box.className = 'detail-box';
+    box.setAttribute('data-safe-pay-box', key);
+    box.innerHTML = '<div class="detail-label">' + (typeof escapeHtml === 'function' ? escapeHtml(label) : label) + '</div><div class="detail-val">' + (typeof escapeHtml === 'function' ? escapeHtml(value) : value) + '</div>';
+    const grid = body.querySelector('.detail-grid') || body;
+    grid.appendChild(box);
+  }
+  const prev = window.showDonorDetails;
+  if(typeof prev === 'function'){
+    window.showDonorDetails = function(id){
+      prev.apply(this, arguments);
+      const d = (Array.isArray(window.donors) ? window.donors : (typeof donors !== 'undefined' ? donors : [])).find(x => String(x.id) === String(id));
+      if(!d) return;
+      setTimeout(function(){
+        const body = document.getElementById('modalBody');
+        if(!body) return;
+        const inst = getInstallments(d);
+        const c = currency(d);
+        if(isRecurring(d)){
+          const r = raw(d);
+          const left = d.KevaTashlumim || d.kevaTashlumim || d.remainingPayments || d.remainingInstallments || d.remainingCharges || r.KevaTashlumim || r.kevaTashlumim || '';
+          if(left) addBox(body, 'יתרת תשלומים בהוראת קבע', String(left), 'keva-left');
+        } else if(inst > 1){
+          addBox(body, 'פריסת תשלום', inst + ' תשלומים', 'installments');
+          addBox(body, 'סכום עסקה כולל', money(total(d), c), 'total');
+          addBox(body, 'חיוב לכל תשלום', money(monthly(d), c), 'monthly');
+        }
+      }, 0);
+    };
+  }
+})();
+</script>
 
 </body>
 </html>
