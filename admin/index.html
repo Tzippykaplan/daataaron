@@ -4118,5 +4118,167 @@ function json(obj) {
   if(document.readyState !== 'loading') run();
 })();
 </script>
+
+<script>
+/* ===== Permanent delete / ignore list for Nedarim test donations ===== */
+(function(){
+  const DELETED_STORE = 'nda_deleted_donor_keys';
+
+  function numericOnly(v){ return String(v || '').replace(/[^0-9]/g, ''); }
+  function parseRawMaybe(v){
+    if(!v) return {};
+    if(typeof v === 'object') return v;
+    try { return JSON.parse(v); } catch(e) { return {}; }
+  }
+  function addKey(set, v){
+    const s = String(v || '').trim();
+    if(s) set.add(s);
+  }
+  function donorDeleteKeys(d){
+    const set = new Set();
+    d = d || {};
+    const raw = parseRawMaybe(d.rawNedarim || d.nedarimRaw || d.raw || d.paymentTransaction || d.transaction);
+    addKey(set, d.id);
+    addKey(set, d.orderRef);
+    addKey(set, d.transactionId || d.TransactionId || d.paymentTransactionId || d.KevaId || d.kevaId);
+    addKey(set, raw.TransactionId || raw.TransactionID || raw.Id || raw.ID || raw.KevaId || raw.KevaID);
+
+    [d.id, d.orderRef, d.transactionId, d.TransactionId, raw.TransactionId, raw.Id, raw.KevaId].forEach(function(v){
+      const str = String(v || '');
+      const m = str.match(/(?:tx-|transaction-|nedarim-[0-9]+-tx-|nedarim-[0-9]+-)?([0-9]{5,})/i);
+      if(m && m[1]) addKey(set, 'tx:' + m[1]);
+    });
+    return Array.from(set);
+  }
+  function loadDeletedKeys(){
+    try { return new Set(JSON.parse(localStorage.getItem(DELETED_STORE) || '[]').map(String)); }
+    catch(e){ return new Set(); }
+  }
+  function saveDeletedKeys(set){ localStorage.setItem(DELETED_STORE, JSON.stringify(Array.from(set))); }
+  function isDeletedDonor(d){
+    const deleted = loadDeletedKeys();
+    const keys = donorDeleteKeys(d);
+    return keys.some(k => deleted.has(String(k)));
+  }
+  function markDeletedDonor(d){
+    const deleted = loadDeletedKeys();
+    donorDeleteKeys(d).forEach(k => deleted.add(String(k)));
+    saveDeletedKeys(deleted);
+    return Array.from(deleted);
+  }
+  function filterDeletedDonors(list){ return (Array.isArray(list) ? list : []).filter(d => !isDeletedDonor(d)); }
+  async function deleteFromSheets(keys){
+    try{
+      const url = typeof getAppsScriptUrl === 'function' ? getAppsScriptUrl() : '';
+      if(!url || !keys || !keys.length) return;
+      await fetch(url, {
+        method:'POST',
+        headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body:JSON.stringify({ action:'delete', deletedIds:keys })
+      });
+    }catch(e){ console.warn('Remote delete failed', e); }
+  }
+
+  window.ndaDonorDeleteKeys = donorDeleteKeys;
+  window.ndaDeletedDonorKeys = loadDeletedKeys;
+  window.ndaIsDeletedDonor = isDeletedDonor;
+  window.ndaFilterDeletedDonors = filterDeletedDonors;
+
+  window.quickDelete = function(id){
+    const d = (donors || []).find(x => String(x && x.id) === String(id));
+    if(!confirm('האם למחוק את התורם?')) return;
+    const keys = markDeletedDonor(d || {id:id});
+    donors = filterDeletedDonors((donors || []).filter(x => String(x && x.id) !== String(id)));
+    if(typeof saveData === 'function') saveData();
+    deleteFromSheets(keys);
+    if(typeof toast === 'function') toast('התורם נמחק לצמיתות ולא יחזור בסנכרון', 'error');
+    if(typeof renderDashboard === 'function') renderDashboard();
+    if(typeof renderAllDonors === 'function') renderAllDonors();
+  };
+
+  window.deleteDonor = function(){
+    const idEl = document.getElementById('donorId');
+    const id = idEl && idEl.value;
+    if(!id){ if(typeof resetForm === 'function') resetForm(); if(typeof showPage === 'function') showPage('dashboard'); return; }
+    const d = (donors || []).find(x => String(x && x.id) === String(id));
+    if(!confirm('האם למחוק את התורם?')) return;
+    const keys = markDeletedDonor(d || {id:id});
+    donors = filterDeletedDonors((donors || []).filter(x => String(x && x.id) !== String(id)));
+    if(typeof saveData === 'function') saveData();
+    deleteFromSheets(keys);
+    if(typeof toast === 'function') toast('התורם נמחק לצמיתות ולא יחזור בסנכרון', 'error');
+    if(typeof resetForm === 'function') resetForm();
+    if(typeof showPage === 'function') showPage('dashboard');
+    if(typeof renderDashboard === 'function') renderDashboard();
+    if(typeof renderAllDonors === 'function') renderAllDonors();
+  };
+
+  window.syncNow = async function(){
+    const url = typeof getAppsScriptUrl === 'function' ? getAppsScriptUrl() : '';
+    if(!url){ if(typeof toast === 'function') toast('כתובת Apps Script חסרה', 'error'); if(typeof showPage === 'function') showPage('settings'); return; }
+    if(typeof toast === 'function') toast('מסנכרן...');
+    try{
+      const deletedIds = Array.from(loadDeletedKeys());
+      donors = filterDeletedDonors(donors || []);
+      await fetch(url, {
+        method:'POST',
+        headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body: JSON.stringify({ action:'sync', donors, deletedIds })
+      });
+      const pull = await fetch(url + '?action=get&t=' + Date.now(), { method:'GET', cache:'no-store' });
+      if(pull.ok){
+        const data = await pull.json();
+        if(data && Array.isArray(data.donors)){
+          const localMap = new Map();
+          (donors || []).forEach(d => { if(d && d.id && !isDeletedDonor(d)) localMap.set(String(d.id), d); });
+          filterDeletedDonors(data.donors).forEach(d => {
+            if(!d || !d.id) return;
+            const old = localMap.get(String(d.id));
+            const merged = Object.assign({}, old || {}, d);
+            if((!merged.donorName || !String(merged.donorName).trim()) && old && old.donorName) merged.donorName = old.donorName;
+            if((!merged.honoreeName || !String(merged.honoreeName).trim()) && old && old.honoreeName) merged.honoreeName = old.honoreeName;
+            if((!merged.notes || !String(merged.notes).trim()) && old && old.notes) merged.notes = old.notes;
+            if(!isDeletedDonor(merged)) localMap.set(String(d.id), merged);
+          });
+          donors = Array.from(localMap.values()).filter(d => !isDeletedDonor(d)).sort((a,b) => new Date(b.paymentDate || b.createdAt || 0) - new Date(a.paymentDate || a.createdAt || 0));
+        }
+      }
+      if(typeof saveData === 'function') saveData();
+      if(typeof renderDashboard === 'function') renderDashboard();
+      if(typeof renderAllDonors === 'function') renderAllDonors();
+      if(typeof updateSyncStatus === 'function') updateSyncStatus();
+      if(typeof toast === 'function') toast('סונכרן בהצלחה', 'success');
+    }catch(e){
+      console.error(e);
+      if(typeof toast === 'function') toast('שגיאת סנכרון: ' + (e && e.message ? e.message : e), 'error');
+    }
+  };
+
+  const oldImportNedarim = window.importNedarimExternalDonations;
+  if(typeof oldImportNedarim === 'function'){
+    window.importNedarimExternalDonations = async function(options){
+      const result = await oldImportNedarim(options);
+      donors = filterDeletedDonors(donors || []);
+      if(typeof saveData === 'function') saveData();
+      if(typeof renderDashboard === 'function') renderDashboard();
+      if(typeof renderAllDonors === 'function') renderAllDonors();
+      return result;
+    };
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    setTimeout(function(){
+      const before = Array.isArray(donors) ? donors.length : 0;
+      donors = filterDeletedDonors(donors || []);
+      if(Array.isArray(donors) && donors.length !== before){
+        if(typeof saveData === 'function') saveData();
+        if(typeof renderDashboard === 'function') renderDashboard();
+        if(typeof renderAllDonors === 'function') renderAllDonors();
+      }
+    }, 0);
+  });
+})();
+</script>
+
 </body>
 </html>
