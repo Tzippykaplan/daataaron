@@ -177,7 +177,6 @@ function detectDonationFrequency(tx, installments) {
   if (/(^|[^a-z])hk([^a-z]|$)|הוראת\s*קבע|קבע|horaat|keva|standing\s*order|recurring/.test(joined)) {
     return { kind: "recurring", label: "הוראת קבע", raw: raw || "HK" };
   }
-  if (Number(installments || 1) > 1) return { kind: "one_time_installments", label: "חד פעמית בתשלומים", raw: raw || "Ragil" };
   return { kind: "one_time", label: "חד פעמית", raw: raw || "Ragil" };
 }
 
@@ -249,13 +248,15 @@ function mapHistoryToDashboardDonor(tx, index, mosadId) {
   const clientName = tx.ClientName || tx.Name || [tx.FirstName, tx.LastName].filter(Boolean).join(" ") || "תורם מנדרים פלוס";
   const frequency = detectDonationFrequency(tx, installments);
   const kevaTashlumim = getKevaTashlumim(tx);
-  // In GetHistoryJson, Amount is the amount of the actual charge row.
-  // If Tashloumim/Tashlumim > 1, this is a regular one-time donation split into installments.
-  // Example: Amount=15 and Tashloumim=12 means total deal is 180, monthly/current cash is 15.
-  const totalCommitment = frequency.kind === "one_time_installments" && installments > 1
-    ? Math.round(amount * installments * 100) / 100
-    : amount;
+  // In Nedarim GetHistoryJson, regular credit-card installments are reported as:
+  // Amount = total transaction amount, Tashloumim/Tashlumim = number of installments.
+  // Example from Nedarim UI: Amount=180 and Tashloumim=5 means total deal is 180, each installment is 36.
+  // Do NOT multiply Amount × Tashloumim for one-time installments.
+  const totalCommitment = amount;
   const monthlyAmount = amount;
+  const installmentAmount = frequency.kind === "one_time_installments" && installments > 1
+    ? Math.round((amount / installments) * 100) / 100
+    : amount;
 
   return {
     id: `nedarim-${mosadId}-tx-${key}`,
@@ -293,10 +294,10 @@ function mapHistoryToDashboardDonor(tx, index, mosadId) {
     remainingPayments: kevaTashlumim,
     remainingInstallments: kevaTashlumim,
     monthlyAmount,
-    installmentAmount: monthlyAmount,
+    installmentAmount: installmentAmount,
     totalCommitment: totalCommitment,
     totalDonationAmount: totalCommitment,
-    currentMonthAmount: monthlyAmount,
+    currentMonthAmount: amount,
     paymentDate: transactionTime || new Date().toISOString(),
     importedAt: new Date().toISOString(),
     source: "nedarim_external",
@@ -309,7 +310,6 @@ function mapHistoryToDashboardDonor(tx, index, mosadId) {
       tx.Confirmation ? `אישור: ${tx.Confirmation}` : "",
       tx.MasofName ? `עמדה: ${tx.MasofName}` : "",
       frequency.label ? `סוג תרומה: ${frequency.label}` : "",
-      frequency.kind === "one_time_installments" ? `${installments} תשלומים · סה"כ עסקה: ${totalCommitment}` : "",
       comments ? `הערות נדרים: ${comments}` : ""
     ].filter(Boolean).join(" · "),
     createdAt: transactionTime || new Date().toISOString(),
