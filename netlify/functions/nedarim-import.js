@@ -158,6 +158,42 @@ function getKevaTashlumim(tx) {
   return numericDigits([tx.Notes, tx.notes, tx.Comments, tx.Comment].filter(Boolean).join(" · "));
 }
 
+
+
+function findCountByKeys(value, keys, depth = 0, seen = new Set()) {
+  if (depth > 10 || value == null) return "";
+  value = parseMaybeJsonString(value);
+  if (!value || typeof value !== "object") return "";
+  if (seen.has(value)) return "";
+  seen.add(value);
+  const normalized = new Set(keys.map(normalizeKevaKey));
+  for (const [key, fieldValue] of Object.entries(value)) {
+    if (normalized.has(normalizeKevaKey(key))) {
+      const n = numericDigits(fieldValue);
+      if (n !== "") return n;
+    }
+  }
+  for (const child of Object.values(value)) {
+    const n = findCountByKeys(child, keys, depth + 1, seen);
+    if (n !== "") return n;
+  }
+  return "";
+}
+
+function getRecurringCounts(tx) {
+  const remaining = getKevaTashlumim(tx);
+  const total = findCountByKeys(tx, [
+    "TotalPayments","TotalInstallments","TotalCharges","PaymentsCount","TashlumimCount",
+    "TashloumimCount","MisparTashlumim","NumberOfPayments","NumOfPayments","MaxPayments",
+    "מספר תשלומים","סהכ תשלומים","סך תשלומים"
+  ]);
+  const completed = findCountByKeys(tx, [
+    "CompletedPayments","CompletedInstallments","CompletedCharges","PaidPayments","ChargesMade",
+    "תשלומים שבוצעו","חיובים שבוצעו"
+  ]);
+  return { remaining, total, completed };
+}
+
 function getAmount(tx) {
   return cleanNumber(
     tx.Amount ?? tx.amount ?? tx.Sum ?? tx.Total ?? tx.Schum ?? tx.SchumHiyuv ?? tx.MonthlyAmount ?? tx.NextTashloum ?? tx.Tashloum ?? tx.HoraahAmount
@@ -223,50 +259,6 @@ function matchesCategory(tx, wantedNormalized) {
   return (haystack.includes("נציבי") || haystack.includes("נציב")) && haystack.includes("דעת") && haystack.includes("אהרן");
 }
 
-
-function hasCategorySignal(tx) {
-  return [
-    tx.Groupe, tx.Group, tx.Category, tx.CampaignName, tx.ProjectName,
-    tx.MasofName, tx.Avour, tx.Purpose
-  ].some((value) => value != null && String(value).trim() !== "");
-}
-
-function matchesKevaCategory(tx, wantedNormalized) {
-  if (!wantedNormalized) return true;
-  // The standing-orders screen often omits the campaign/category entirely.
-  // In that case the row belongs to the selected institution and should not be discarded.
-  if (!hasCategorySignal(tx)) return true;
-  return matchesCategory(tx, wantedNormalized);
-}
-
-function stableExternalKey(donor) {
-  const raw = donor && donor.rawNedarim && typeof donor.rawNedarim === "object" ? donor.rawNedarim : {};
-  const kevaId = donor && (
-    donor.KevaId || donor.kevaId || donor.standingOrderId || donor.recurringId ||
-    raw.KevaId || raw.KevaID || raw.HoraatKevaId || raw.HoraaId
-  );
-  if (kevaId != null && String(kevaId).trim() !== "") return `keva:${String(kevaId).trim()}`;
-
-  const txId = donor && (
-    donor.transactionId || donor.TransactionId ||
-    raw.TransactionId || raw.transactionId || raw.Id
-  );
-  if (txId != null && String(txId).trim() !== "") return `tx:${String(txId).trim()}`;
-
-  return String(donor && donor.id || "");
-}
-
-function dedupeDonors(donors) {
-  const map = new Map();
-  for (const donor of donors || []) {
-    const key = stableExternalKey(donor) || String(donor.id || Math.random());
-    const previous = map.get(key);
-    // Prefer an active standing-order record over a completed history charge with the same KevaId.
-    if (!previous || donor.source === "nedarim_recurring") map.set(key, donor);
-  }
-  return Array.from(map.values());
-}
-
 function transactionKey(tx, index, mosadId) {
   return String(
     tx.TransactionId || tx.transactionId || tx.Id || tx.id || tx.Shovar || tx.Confirmation || tx.KabalaId || `${mosadId}-${Date.now()}-${index}`
@@ -290,12 +282,11 @@ function detectDonationFrequency(tx, installments) {
     tx.Notes, tx.MasofName, tx.Avour
   ].filter(Boolean).join(" ").toLowerCase();
 
-  if (/(^|[^a-z])hk([^a-z]|$)|הוראת\s*קבע|קבע|horaat|keva|standing\s*order|recurring/.test(joined)) {
+  // Nedarim commonly returns the Hebrew abbreviation הו"ק / הו״ק.
+  if (/(^|[^a-z])hk([^a-z]|$)|הוראת\s*קבע|הו["״׳']?ק|הוק|(^|\s)קבע(\s|$)|horaat|keva|standing\s*order|recurring/i.test(joined)) {
     return { kind: "recurring", label: "הוראת קבע", raw: raw || "HK" };
   }
 
-  // A regular card transaction remains a one-time donation even when Nedarim divided it
-  // into several installments. The dashboard intentionally shows only the final total.
   return { kind: "one_time", label: "חד פעמית", raw: raw || "Ragil" };
 }
 
@@ -421,41 +412,31 @@ function parseResponse(raw, mode = "transaction") {
   return { parsed, rows };
 }
 
-function boolish(value) {
+
+function boolishFlag(value) {
   if (value === true || value === 1) return true;
   if (value === false || value === 0) return false;
-  const text = String(value ?? "").trim().toLowerCase();
-  if (!text) return null;
-  if (/^(true|1|yes|y|כן|פעיל|active)$/.test(text)) return true;
-  if (/^(false|0|no|n|לא|לא פעיל|inactive)$/.test(text)) return false;
+  const s = String(value == null ? "" : value).trim().toLowerCase();
+  if (!s) return null;
+  if (/^(true|1|yes|כן|active|פעיל)$/.test(s)) return true;
+  if (/^(false|0|no|לא|inactive|לא פעיל)$/.test(s)) return false;
   return null;
 }
 
+function firstDefined(...values) {
+  for (const value of values) {
+    if (value !== undefined && value !== null && String(value).trim() !== "") return value;
+  }
+  return "";
+}
+
 function isInactiveKeva(tx) {
-  tx = tx || {};
-
-  const activeValues = [tx.Active, tx.active, tx.IsActive, tx.isActive];
-  for (const value of activeValues) {
-    const parsed = boolish(value);
-    if (parsed === false) return true;
-  }
-
-  const cancelledValues = [
-    tx.Cancelled, tx.cancelled, tx.Canceled, tx.canceled,
-    tx.IsCancelled, tx.isCancelled, tx.IsCanceled, tx.isCanceled,
-    tx.Bitual, tx.Bitul
-  ];
-  for (const value of cancelledValues) {
-    const parsed = boolish(value);
-    if (parsed === true) return true;
-  }
-
-  const statusText = [
-    tx.Status, tx.status, tx.State, tx.state,
-    tx.Notes, tx.notes, tx.Comments, tx.Comment
-  ].filter((v) => v != null && String(v).trim() !== "").join(" ").toLowerCase();
-
-  return /מבוטל|בוטל|הופסק|מוקפא|לא\s*פעיל|cancel(?:led|ed)?|inactive|stopped|suspended/.test(statusText);
+  const statusText = [tx.Status, tx.status, tx.State, tx.state, tx.Notes, tx.Comments]
+    .filter((v) => v != null).join(" ").toLowerCase();
+  const active = boolishFlag(firstDefined(tx.Active, tx.active, tx.IsActive, tx.isActive));
+  const cancelled = boolishFlag(firstDefined(tx.Cancelled, tx.Canceled, tx.IsCancelled, tx.isCancelled, tx.Bitual));
+  return /מבוטל|בוטל|cancelled|canceled|inactive|לא\s*פעיל|הופסק|מוקפא/.test(statusText) ||
+    active === false || cancelled === true;
 }
 
 function mapHistoryToDashboardDonor(tx, index, mosadId) {
@@ -470,33 +451,46 @@ function mapHistoryToDashboardDonor(tx, index, mosadId) {
   const comments = tx.Comments || tx.Comment || tx.Notes || "";
   const clientName = tx.ClientName || tx.Name || [tx.FirstName, tx.LastName].filter(Boolean).join(" ") || "תורם מנדרים פלוס";
   const frequency = detectDonationFrequency(tx, installments);
-  const kevaTashlumim = getKevaTashlumim(tx);
-  // In Nedarim GetHistoryJson, regular credit-card installments are reported as:
-  // Amount = total transaction amount, Tashloumim/Tashlumim = number of installments.
-  // Example from Nedarim UI: Amount=180 and Tashloumim=5 means total deal is 180, each installment is 36.
-  // Do NOT multiply Amount × Tashloumim for one-time installments.
-  const totalCommitment = amount;
-  const monthlyAmount = amount;
-  // For a regular transaction, Amount is already the final total amount.
-  // Installment details are intentionally not displayed or used for categorization.
-  const installmentAmount = amount;
+  const counts = getRecurringCounts(tx);
+  const kevaId = String(tx.KevaId || tx.KevaID || tx.HoraatKevaId || tx.HoraaId || "").trim();
 
-  return {
+  const recurringFields = frequency.kind === "recurring" ? {
+    KevaId: kevaId,
+    kevaId,
+    standingOrderId: kevaId,
+    KevaTashlumim: counts.remaining,
+    kevaTashlumim: counts.remaining,
+    remainingPayments: counts.remaining,
+    remainingInstallments: counts.remaining,
+    remainingCharges: counts.remaining,
+    totalPayments: counts.total,
+    totalInstallments: counts.total,
+    totalCharges: counts.total,
+    completedPayments: counts.completed || "",
+    completedInstallments: counts.completed || "",
+    completedCharges: counts.completed || "",
+    paymentInstallments: counts.total || ""
+  } : {
+    // A normal card transaction stays one-time; Amount is already the final total.
+    paymentInstallments: installments,
+    installments,
+    tashlumim: installments,
+    Tashlumim: installments,
+    Tashloumim: installments
+  };
+
+  return Object.assign({
     id: `nedarim-${mosadId}-tx-${key}`,
-    transactionId: key,
-    TransactionId: key,
-    KevaId: tx.KevaId || tx.KevaID || "",
-    kevaId: tx.KevaId || tx.KevaID || "",
     fullName: clientName,
-    donorName: clientName,
+    donorName: "",
+    fundraiserName: "",
     phone: tx.Phone || "",
     email: tx.Mail || tx.Email || "",
     address: tx.Adresse || tx.Address || tx.Street || "",
     category,
     isExternalDonation: true,
-    externalDonation: true,
-    isExternalNedarim: true,
     importedFromNedarim: true,
+    isExternalNedarim: true,
     hasDedicationDate: false,
     hebDay: "",
     hebMonth: "",
@@ -506,41 +500,32 @@ function mapHistoryToDashboardDonor(tx, index, mosadId) {
     amount,
     currency,
     paymentProcessor: "Nedarim Plus",
+    processor: "Nedarim Plus",
     paymentStatus: "approved",
     paymentApproved: true,
     chargedAmount: amount,
     orderRef: `NED-${key}`,
+    transactionId: String(key),
+    TransactionId: String(key),
     paymentType: frequency.raw,
     paymentTypeRaw: frequency.raw,
     donationFrequency: frequency.kind,
     donationFrequencyLabel: frequency.label,
-    paymentInstallments: installments,
-    installments: installments,
-    paymentsCount: installments,
-    tashlumimCount: installments,
-    totalPayments: installments,
-    totalInstallments: installments,
-    tashlumim: installments,
-    Tashlumim: installments,
-    Tashloumim: installments,
-    kevaTashlumim: kevaTashlumim,
-    KevaTashlumim: kevaTashlumim,
-    remainingPayments: kevaTashlumim,
-    remainingInstallments: kevaTashlumim,
-    monthlyAmount,
-    installmentAmount: installmentAmount,
-    totalCommitment: totalCommitment,
-    totalDonationAmount: totalCommitment,
+    monthlyAmount: amount,
+    installmentAmount: amount,
+    totalCommitment: amount,
+    totalDonationAmount: amount,
     currentMonthAmount: amount,
     paymentDate: transactionTime || new Date().toISOString(),
     importedAt: new Date().toISOString(),
-    source: frequency.kind === "recurring" ? "nedarim_recurring_history" : "nedarim_external",
-    donationSource: frequency.kind === "recurring" ? "nedarim_recurring_history" : "nedarim_external",
+    source: "nedarim_external",
+    donationSource: frequency.kind === "recurring" ? "nedarim_recurring" : "nedarim_external",
     notes: [
       "ייבוא חיצוני מנדרים פלוס - הכנסות",
       `מספר עסקה: ${key}`,
-      tx.KevaId ? `מזהה הוראת קבע: ${tx.KevaId}` : "",
-      kevaTashlumim !== "" ? `יתרת תשלומים: ${kevaTashlumim}` : "",
+      kevaId ? `מזהה הוראת קבע: ${kevaId}` : "",
+      counts.remaining !== "" ? `יתרת תשלומים: ${counts.remaining}` : "",
+      counts.total !== "" ? `מספר תשלומים: ${counts.total}` : "",
       tx.Shovar ? `שובר: ${tx.Shovar}` : "",
       tx.Confirmation ? `אישור: ${tx.Confirmation}` : "",
       tx.MasofName ? `עמדה: ${tx.MasofName}` : "",
@@ -549,7 +534,7 @@ function mapHistoryToDashboardDonor(tx, index, mosadId) {
     ].filter(Boolean).join(" · "),
     createdAt: transactionTime || new Date().toISOString(),
     rawNedarim: tx
-  };
+  }, recurringFields);
 }
 
 function mapKevaToDashboardDonor(tx, index, mosadId) {
@@ -557,39 +542,27 @@ function mapKevaToDashboardDonor(tx, index, mosadId) {
   const amount = getAmount(tx);
   const currencyCode = String(tx.Currency || tx.currency || "1").trim();
   const currency = currencyCode === "2" || /dollar|usd|\$|דולר/i.test(currencyCode) ? "USD" : "ILS";
-  const kevaTashlumim = getKevaTashlumim(tx);
-  const explicitInstallments = numericDigits(
-    tx.TotalPayments ?? tx.TotalInstallments ?? tx.PaymentsCount ??
-    tx.Tashloumim ?? tx.Tashlumim ?? tx.Payments ?? ""
-  );
-  const recurringCount = kevaTashlumim || explicitInstallments || "";
-  const installments = Math.max(1, Number(recurringCount || 1) || 1);
+  const counts = getRecurringCounts(tx);
   const category = tx.Groupe || tx.Group || tx.Category || "נציבי דעת אהרן";
   const comments = tx.Comments || tx.Comment || tx.Notes || tx.Avour || "";
   const clientName = tx.ClientName || tx.Name || [tx.FirstName, tx.LastName].filter(Boolean).join(" ") || "תורם הוראת קבע מנדרים פלוס";
-  const startDate = parseDate(tx.StartFrom || tx.StartDate || tx.CreatedAt || tx.Date || tx.OpenDate || tx.TransactionTime, { allowFuture: true }) || new Date().toISOString();
+  const startDate = parseDate(tx.StartFrom || tx.StartDate || tx.CreatedAt || tx.Date || tx.OpenDate || tx.TransactionTime) || new Date().toISOString();
   const nextChargeDate = parseDate(tx.NextDate || tx.NextCharge || tx.ChargeDate || tx.HiyuvHaba || tx.HiyuvDate || tx.DateHiyuv, { allowFuture: true });
   const dayOfCharge = String(tx.Day || tx.DayC || tx.ChargeDay || tx.HiyuvDay || "").replace(/[^0-9]/g, "");
   const inactive = isInactiveKeva(tx);
-  const totalCommitment = recurringCount ? amount * Number(recurringCount) : amount;
 
   return {
     id: `nedarim-${mosadId}-keva-${key}`,
-    KevaId: key,
-    kevaId: key,
-    standingOrderId: key,
-    recurringId: key,
     fullName: clientName,
-    donorName: clientName,
+    donorName: "",
+    fundraiserName: "",
     phone: tx.Phone || "",
     email: tx.Mail || tx.Email || "",
     address: tx.Adresse || tx.Address || tx.Street || "",
     category,
     isExternalDonation: true,
-    externalDonation: true,
-    isExternalNedarim: true,
     importedFromNedarim: true,
-    activeStandingOrder: !inactive,
+    isExternalNedarim: true,
     hasDedicationDate: false,
     hebDay: "",
     hebMonth: "",
@@ -602,46 +575,45 @@ function mapKevaToDashboardDonor(tx, index, mosadId) {
     processor: "Nedarim Plus",
     paymentStatus: inactive ? "inactive" : "approved",
     paymentApproved: !inactive,
-    chargedAmount: amount,
+    chargedAmount: 0,
     orderRef: `NED-HK-${key}`,
+    KevaId: String(key),
+    kevaId: String(key),
+    standingOrderId: String(key),
+    activeStandingOrder: !inactive,
     paymentType: "HK",
     paymentTypeRaw: "HK",
     donationFrequency: "recurring",
     donationFrequencyLabel: "הוראת קבע",
-    paymentInstallments: installments,
-    installments,
-    tashlumim: installments,
-    Tashlumim: installments,
-    Tashloumim: installments,
-    paymentsCount: installments,
-    tashlumimCount: installments,
-    kevaTashlumim: recurringCount,
-    KevaTashlumim: recurringCount,
-    remainingPayments: recurringCount,
-    remainingInstallments: recurringCount,
-    remainingCharges: recurringCount,
-    totalPayments: explicitInstallments || recurringCount,
-    totalInstallments: explicitInstallments || recurringCount,
+    paymentInstallments: counts.total || "",
+    KevaTashlumim: counts.remaining,
+    kevaTashlumim: counts.remaining,
+    remainingPayments: counts.remaining,
+    remainingInstallments: counts.remaining,
+    remainingCharges: counts.remaining,
+    totalPayments: counts.total,
+    totalInstallments: counts.total,
+    totalCharges: counts.total,
+    completedPayments: counts.completed,
+    completedInstallments: counts.completed,
+    completedCharges: counts.completed,
     monthlyAmount: amount,
-    KevaAmount: amount,
-    kevaAmount: amount,
     installmentAmount: amount,
-    totalCommitment,
-    totalDonationAmount: totalCommitment,
-    currentMonthAmount: amount,
+    totalCommitment: counts.total ? amount * Number(counts.total) : 0,
+    currentMonthAmount: 0,
     paymentDate: startDate,
-    donationDate: startDate,
     startDate,
     nextChargeDate,
     dayOfCharge,
     importedAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
     source: "nedarim_recurring",
     donationSource: "nedarim_recurring",
     notes: [
       "ייבוא חיצוני מנדרים פלוס - הוראת קבע",
       `מזהה הוראת קבע: ${key}`,
-      recurringCount !== "" ? `יתרת תשלומים: ${recurringCount}` : "",
+      counts.remaining !== "" ? `יתרת תשלומים: ${counts.remaining}` : "",
+      counts.total !== "" ? `מספר תשלומים: ${counts.total}` : "",
+      counts.completed !== "" ? `חיובים שבוצעו: ${counts.completed}` : "",
       dayOfCharge ? `יום חיוב: ${dayOfCharge}` : "",
       nextChargeDate ? `חיוב הבא: ${nextChargeDate.slice(0, 10)}` : "",
       tx.LastNum ? `כרטיס: *${tx.LastNum}` : "",
@@ -650,6 +622,27 @@ function mapKevaToDashboardDonor(tx, index, mosadId) {
     createdAt: startDate,
     rawNedarim: tx
   };
+}
+
+
+function enrichCompletedRecurringCounts(donors) {
+  const byKeva = new Map();
+  for (const d of donors || []) {
+    if (d.donationFrequency !== "recurring" || !d.KevaId || !d.TransactionId) continue;
+    if (!byKeva.has(String(d.KevaId))) byKeva.set(String(d.KevaId), new Set());
+    byKeva.get(String(d.KevaId)).add(String(d.TransactionId));
+  }
+  for (const d of donors || []) {
+    if (d.donationFrequency !== "recurring" || !d.KevaId) continue;
+    const count = byKeva.has(String(d.KevaId)) ? byKeva.get(String(d.KevaId)).size : 0;
+    const existing = Number(numericDigits(d.completedPayments) || 0);
+    if (count > existing) {
+      d.completedPayments = String(count);
+      d.completedInstallments = String(count);
+      d.completedCharges = String(count);
+    }
+  }
+  return donors;
 }
 
 function groupSummary(rows) {
@@ -681,117 +674,45 @@ async function fetchHistoryPage({ mosadId, apiPassword, lastId, maxId, omitLastI
   return { parsed, rows, rawPreview: raw.slice(0, 900), requestUrl: url.toString().replace(/ApiPassword=[^&]*/i, "ApiPassword=***") };
 }
 
-async function fetchWithTimeout(url, options = {}, timeoutMs = 3500) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(url, { ...options, signal: controller.signal });
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-function kevaCandidates() {
-  const configuredUrl = process.env.NEDARIM_KEVA_URL;
-  const configuredAction = process.env.NEDARIM_KEVA_ACTION;
-
-  if (configuredUrl && configuredAction) {
-    return [{ endpoint: configuredUrl, action: configuredAction, configured: true }];
-  }
-
-  const endpoints = configuredUrl ? [configuredUrl] : DEFAULT_KEVA_ENDPOINTS;
-  const actions = configuredAction ? [configuredAction] : DEFAULT_KEVA_ACTIONS;
-  const preferred = [];
-
-  // Try the most plausible combinations first. This avoids dozens of sequential requests.
-  const preferredActions = [
-    "GetKevaJson", "GetHoraotKevaJson", "GetHoraatKevaJson",
-    "GetKevaListJson", "GetHKJson", "GetStandingOrdersJson"
-  ];
-  const orderedActions = [...new Set([...preferredActions, ...actions])];
+async function tryFetchKeva({ mosadId, apiPassword, maxId, debug }) {
+  const endpoints = (process.env.NEDARIM_KEVA_URL ? [process.env.NEDARIM_KEVA_URL] : DEFAULT_KEVA_ENDPOINTS);
+  const actions = (process.env.NEDARIM_KEVA_ACTION ? [process.env.NEDARIM_KEVA_ACTION] : DEFAULT_KEVA_ACTIONS);
+  const attempts = [];
 
   for (const endpoint of endpoints) {
-    for (const action of orderedActions) {
-      preferred.push({ endpoint, action, configured: Boolean(configuredUrl || configuredAction) });
-    }
-  }
-  return preferred;
-}
-
-async function tryFetchKeva({ mosadId, apiPassword, maxId, debug }) {
-  const attempts = [];
-  const candidates = kevaCandidates();
-  const maxAttempts = Math.max(1, Math.min(Number(process.env.NEDARIM_KEVA_MAX_ATTEMPTS || 18) || 18, 40));
-  const perRequestTimeout = Math.max(1000, Math.min(Number(process.env.NEDARIM_KEVA_TIMEOUT_MS || 3500) || 3500, 8000));
-  const overallTimeout = Math.max(3000, Math.min(Number(process.env.NEDARIM_KEVA_TOTAL_TIMEOUT_MS || 12000) || 12000, 22000));
-  const deadline = Date.now() + overallTimeout;
-
-  for (const candidate of candidates.slice(0, maxAttempts)) {
-    if (Date.now() >= deadline) {
-      attempts.push({ skipped: true, reason: "overall timeout reached" });
-      break;
-    }
-
-    const { endpoint, action } = candidate;
-    const url = new URL(endpoint);
-    url.searchParams.set("Action", action);
-    url.searchParams.set("MosadId", mosadId);
-    url.searchParams.set("ApiPassword", apiPassword);
-    if (maxId) url.searchParams.set("MaxId", String(maxId));
-
-    try {
-      const remaining = Math.max(500, deadline - Date.now());
-      const timeoutMs = Math.min(perRequestTimeout, remaining);
-      const response = await fetchWithTimeout(
-        url.toString(),
-        { method: "GET", headers: { "Accept": "application/json,text/plain,*/*" } },
-        timeoutMs
-      );
-      const raw = (await response.text()).replace(/^\uFEFF/, "").trim();
-      let rows = [];
-      let parseError = "";
-
-      if (response.ok && raw) {
-        try {
-          rows = parseResponse(raw, "keva").rows;
-        } catch (error) {
-          parseError = error.message;
+    for (const action of actions) {
+      const url = new URL(endpoint);
+      url.searchParams.set("Action", action);
+      url.searchParams.set("MosadId", mosadId);
+      url.searchParams.set("ApiPassword", apiPassword);
+      if (maxId) url.searchParams.set("MaxId", String(maxId));
+      try {
+        const response = await fetch(url.toString(), { method: "GET", headers: { "Accept": "application/json,text/plain,*/*" } });
+        const raw = (await response.text()).replace(/^\uFEFF/, "").trim();
+        let rows = [];
+        let parseError = "";
+        if (response.ok) {
+          try { rows = parseResponse(raw, "keva").rows; }
+          catch (e) { parseError = e.message; }
         }
+        attempts.push({
+          endpoint,
+          action,
+          ok: response.ok,
+          status: response.status,
+          rows: rows.length,
+          parseError: parseError || undefined,
+          preview: debug ? raw.slice(0, 240) : undefined
+        });
+        if (response.ok && rows.length) {
+          return { rows, endpoint, action, attempts };
+        }
+      } catch (error) {
+        attempts.push({ endpoint, action, ok: false, error: error.message });
       }
-
-      attempts.push({
-        endpoint,
-        action,
-        ok: response.ok,
-        status: response.status,
-        rows: rows.length,
-        parseError: parseError || undefined,
-        preview: debug ? raw.slice(0, 300) : undefined
-      });
-
-      if (response.ok && rows.length) {
-        return { rows, endpoint, action, attempts, warning: "" };
-      }
-    } catch (error) {
-      attempts.push({
-        endpoint,
-        action,
-        ok: false,
-        error: error && error.name === "AbortError" ? "request timeout" : String(error.message || error)
-      });
     }
   }
-
-  const configured = Boolean(process.env.NEDARIM_KEVA_URL || process.env.NEDARIM_KEVA_ACTION);
-  return {
-    rows: [],
-    endpoint: "",
-    action: "",
-    attempts,
-    warning: configured
-      ? "The configured standing-orders endpoint returned no rows."
-      : "No documented standing-orders endpoint is configured. History donations were still imported."
-  };
+  return { rows: [], endpoint: "", action: "", attempts };
 }
 
 exports.handler = async function (event) {
@@ -840,16 +761,7 @@ exports.handler = async function (event) {
       if (rows.length < maxId) break;
     }
 
-    const uniqueHistoryRows = [];
-    const historySeen = new Set();
-    for (const tx of allRows) {
-      const key = transactionKey(tx, uniqueHistoryRows.length, mosadId);
-      if (historySeen.has(key)) continue;
-      historySeen.add(key);
-      uniqueHistoryRows.push(tx);
-    }
-
-    const filteredHistory = uniqueHistoryRows.filter((tx) => matchesCategory(tx, wanted));
+    const filteredHistory = allRows.filter((tx) => matchesCategory(tx, wanted));
     const historyDonors = filteredHistory.map((tx, index) => mapHistoryToDashboardDonor(tx, index, mosadId));
 
     // 2) Active credit-card standing orders: the Nedarim הוראות קבע - אשראי screen.
@@ -861,11 +773,11 @@ exports.handler = async function (event) {
     if (includeKeva) {
       kevaInfo = await tryFetchKeva({ mosadId, apiPassword, maxId, debug });
       kevaRows = kevaInfo.rows || [];
-      filteredKeva = kevaRows.filter((tx) => !isInactiveKeva(tx) && matchesKevaCategory(tx, wanted));
+      filteredKeva = kevaRows.filter((tx) => !isInactiveKeva(tx) && matchesCategory(tx, wanted));
       kevaDonors = filteredKeva.map((tx, index) => mapKevaToDashboardDonor(tx, index, mosadId));
     }
 
-    const donors = dedupeDonors([...historyDonors, ...kevaDonors]);
+    const donors = enrichCompletedRecurringCounts([...historyDonors, ...kevaDonors]);
 
     return json(200, {
       success: true,
@@ -873,22 +785,21 @@ exports.handler = async function (event) {
       category,
       full,
       pagesFetched,
-      fetched: uniqueHistoryRows.length,
+      fetched: allRows.length,
       imported: donors.length,
       importedHistory: historyDonors.length,
       fetchedKeva: kevaRows.length,
       importedKeva: kevaDonors.length,
       kevaEndpoint: kevaInfo.endpoint,
       kevaAction: kevaInfo.action,
-      kevaWarning: kevaInfo.warning || "",
       maxTransactionId,
-      groups: groupSummary(uniqueHistoryRows),
+      groups: groupSummary(allRows),
       kevaGroups: groupSummary(kevaRows),
       donors,
       debug: debug ? {
         historyRequestUrl: lastRequestUrl,
         historyRawPreview: lastRawPreview,
-        historyFirstRowKeys: uniqueHistoryRows[0] ? Object.keys(uniqueHistoryRows[0]).slice(0, 80) : [],
+        historyFirstRowKeys: allRows[0] ? Object.keys(allRows[0]).slice(0, 80) : [],
         kevaAttempts: kevaInfo.attempts,
         kevaFirstRowKeys: kevaRows[0] ? Object.keys(kevaRows[0]).slice(0, 100) : [],
         kevaFirstRowPreview: kevaRows[0] || null,
