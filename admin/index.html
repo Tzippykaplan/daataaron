@@ -2182,7 +2182,7 @@ const HEADERS = ['id','fullName','donorName','phone','email','address','category
   'hebDay','hebMonth','memoryContent','deceasedName','status',
   'amount','currency','paymentProcessor','paymentStatus','paymentApproved','chargedAmount','orderRef',
   'paymentType','paymentInstallments','monthlyAmount','installmentAmount','totalCommitment','currentMonthAmount',
-  'remainingCharges','completedCharges','totalCharges','donationFrequency','donationFrequencyLabel','paymentTypeRaw','source',
+  'remainingCharges','remainingPayments','remainingInstallments','kevaTashlumim','completedCharges','totalCharges','donationFrequency','donationFrequencyLabel','paymentTypeRaw','source',
   'paymentDate','notes','createdAt'];
 
 function doGet(e) {
@@ -3547,14 +3547,32 @@ function json(obj) {
     if (changed && typeof saveData === 'function') saveData();
   }
   function donationDateText(d){ const dt = parseDonationDate(d); return dt ? dt.toLocaleDateString('he-IL') : 'ללא תאריך'; }
+  function getKevaTashlumimValue(d){
+    if (!d) return '';
+    const r = d.rawNedarim || {};
+    const candidates = [
+      d.kevaTashlumim, d.KevaTashlumim, d.remainingPayments, d.remainingInstallments, d.remainingCharges,
+      r.KevaTashlumim, r.kevaTashlumim, r.YitratTashloumim, r.YitratTashlumim, r.Yitra, r.Tashlumim, r.Tashloumim
+    ];
+    for (const v of candidates) {
+      if (v === undefined || v === null || String(v).trim() === '') continue;
+      const n = String(v).replace(/[^0-9]/g, '');
+      if (n) return n;
+      return String(v).trim();
+    }
+    return '';
+  }
+  window.ndaKevaTashlumimValue = getKevaTashlumimValue;
   function donationRow(d){
     const f = donationFrequency(d);
     const donorName = donorNameValue(d);
+    const kevaTashlumim = getKevaTashlumimValue(d);
     const meta = [
       '<span class="income-badge source">' + escapeHtml(sourceLabel(d)) + '</span>',
       '<span class="income-badge ' + (f.key === 'recurring' ? 'recurring' : 'one-time') + '">' + escapeHtml(f.label) + '</span>',
+      (f.key === 'recurring' && kevaTashlumim ? '<span class="income-badge recurring">יתרת תשלומים: ' + escapeHtml(kevaTashlumim) + '</span>' : ''),
       '<span>תאריך תרומה: ' + escapeHtml(donationDateText(d)) + '</span>'
-    ].join('');
+    ].filter(Boolean).join('');
     const donorMeta = donorName ? '<div class="income-meta"><span>שם המתרים: ' + escapeHtml(donorName) + '</span></div>' : '';
     return '<div class="income-row" onclick="showDonorDetails(\'' + escapeHtml(d.id || '') + '\')">' +
       '<div class="income-avatar">' + escapeHtml(initialsSafe(d.fullName || '')) + '</div>' +
@@ -3772,6 +3790,105 @@ function json(obj) {
 </script>
 
 <!-- <script src="./donations-viewer.js"></script> -->
+
+
+<script>
+/* ===== Patch: show KevaTashlumim / remaining installments for Nedarim standing orders ===== */
+(function(){
+  function esc(v){ return typeof escapeHtml === 'function' ? escapeHtml(v) : String(v == null ? '' : v).replace(/[&<>"']/g, function(ch){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]); }); }
+  function cleanDigits(v){ const s = String(v == null ? '' : v).trim(); const n = s.replace(/[^0-9]/g, ''); return n || s; }
+  function isRecurringDonor(d){
+    if(!d) return false;
+    try { if(typeof window.ndaDonationFrequency === 'function' && window.ndaDonationFrequency(d).key === 'recurring') return true; } catch(e) {}
+    const r = d.rawNedarim || {};
+    const raw = [d.donationFrequency,d.donationFrequencyLabel,d.paymentType,d.paymentTypeRaw,d.source,d.notes,r.PaymentType,r.TransactionType,r.KevaId,r.KevaTashlumim].filter(Boolean).join(' ').toLowerCase();
+    return /recurring|(^|[^a-z])hk([^a-z]|$)|הוראת\s*קבע|קבע|standing\s*order|horaat|keva/.test(raw);
+  }
+  function kevaTashlumimValue(d){
+    if(!d) return '';
+    const r = d.rawNedarim || {};
+    const candidates = [
+      d.kevaTashlumim, d.KevaTashlumim, d.remainingPayments, d.remainingInstallments, d.remainingCharges,
+      r.KevaTashlumim, r.kevaTashlumim, r.YitratTashloumim, r.YitratTashlumim, r.Yitra, r.Tashlumim, r.Tashloumim
+    ];
+    for(const v of candidates){
+      if(v === undefined || v === null || String(v).trim() === '') continue;
+      return cleanDigits(v);
+    }
+    return '';
+  }
+  window.ndaKevaTashlumimValue = kevaTashlumimValue;
+  window.ndaKevaTashlumimLabel = function(d){
+    const v = kevaTashlumimValue(d);
+    return (isRecurringDonor(d) && v) ? ('יתרת תשלומים בהו״ק: ' + v) : '';
+  };
+  function normalizeKevaTashlumim(){
+    if(typeof donors === 'undefined' || !Array.isArray(donors)) return;
+    let changed = false;
+    donors.forEach(function(d){
+      if(!d || !isRecurringDonor(d)) return;
+      const v = kevaTashlumimValue(d);
+      if(!v) return;
+      if(!d.kevaTashlumim || String(d.kevaTashlumim) !== String(v)){ d.kevaTashlumim = v; changed = true; }
+      if(!d.remainingPayments || String(d.remainingPayments) !== String(v)){ d.remainingPayments = v; changed = true; }
+      if(!d.remainingInstallments || String(d.remainingInstallments) !== String(v)){ d.remainingInstallments = v; changed = true; }
+      if(!d.remainingCharges || String(d.remainingCharges) !== String(v)){ d.remainingCharges = v; changed = true; }
+    });
+    if(changed && typeof saveData === 'function') saveData();
+  }
+  const prevDonorRow = typeof window.donorRow === 'function' ? window.donorRow : null;
+  if(prevDonorRow){
+    window.donorRow = function(d){
+      normalizeKevaTashlumim();
+      let html = prevDonorRow.apply(this, arguments);
+      const label = window.ndaKevaTashlumimLabel(d);
+      if(!label || html.indexOf('data-keva-tashlumim') !== -1) return html;
+      const extra = '<div class="donor-sub" data-keva-tashlumim="1">' + esc(label) + '</div>';
+      if(html.indexOf('</div></div><div class="donor-amount"') !== -1) {
+        return html.replace('</div></div><div class="donor-amount"', extra + '</div></div><div class="donor-amount"');
+      }
+      if(html.indexOf('<div class="donor-info">') !== -1) {
+        return html.replace('</div><div class="donor-amount"', extra + '</div><div class="donor-amount"');
+      }
+      return html;
+    };
+  }
+  const prevShow = typeof window.showDonorDetails === 'function' ? window.showDonorDetails : null;
+  if(prevShow){
+    window.showDonorDetails = function(id){
+      prevShow.apply(this, arguments);
+      const d = (typeof donors !== 'undefined' && Array.isArray(donors) ? donors : []).find(function(x){ return String(x.id) === String(id); });
+      if(!d || !isRecurringDonor(d)) return;
+      setTimeout(function(){
+        normalizeKevaTashlumim();
+        const body = document.getElementById('modalBody');
+        if(!body || body.querySelector('[data-keva-tashlumim-box]')) return;
+        const val = kevaTashlumimValue(d);
+        if(!val) return;
+        const box = document.createElement('div');
+        box.className = 'detail-box';
+        box.setAttribute('data-keva-tashlumim-box','1');
+        box.innerHTML = '<div class="detail-label">יתרת תשלומים בהוראת קבע</div><div class="detail-val">' + esc(val) + '</div>';
+        const grid = body.querySelector('.details-grid') || body.querySelector('.detail-grid') || body;
+        grid.appendChild(box);
+      }, 0);
+    };
+  }
+  const prevImport = typeof window.importNedarimExternalDonations === 'function' ? window.importNedarimExternalDonations : null;
+  if(prevImport){
+    window.importNedarimExternalDonations = async function(){
+      const result = await prevImport.apply(this, arguments);
+      normalizeKevaTashlumim();
+      if(typeof renderDashboard === 'function') renderDashboard();
+      if(typeof renderAllDonors === 'function') renderAllDonors();
+      return result;
+    };
+  }
+  document.addEventListener('DOMContentLoaded', function(){ normalizeKevaTashlumim(); });
+  window.addEventListener('load', function(){ normalizeKevaTashlumim(); });
+  if(document.readyState !== 'loading') normalizeKevaTashlumim();
+})();
+</script>
 
 </body>
 </html>
