@@ -83,6 +83,18 @@ function getKevaTashlumim(tx) {
     tx.YitratTashloumim,
     tx.YitratTashlumim,
     tx.Yitra,
+      tx["יתרת חיובים"],
+      tx["יתרת תשלומים"],
+      tx["יתרת חיוב"],
+      tx["יתרה לחיוב"],
+      tx["יתרה לתשלום"],
+      tx["יתרה"],
+      tx.YitratChiyuvim,
+      tx.YitratHiyuvim,
+      tx.YitratHiuvim,
+      tx.RemainingPayments,
+      tx.RemainingInstallments,
+      tx.RemainingCharges,
     tx.remainingPayments,
     tx.remainingInstallments,
     tx.remainingCharges,
@@ -196,7 +208,36 @@ function parseMaybeJsonString(value) {
 }
 
 const TX_KEYS = ["TransactionId", "transactionId", "TransactionTime", "Amount", "ClientName", "Groupe", "KabalaId", "Shovar", "KevaId"];
-const KEVA_KEYS = ["KevaId", "KevaID", "HoraatKevaId", "HoraaId", "Day", "StartFrom", "Yitra", "YitratTashloumim", "Bitzua", "LastNum", "NextDate", "NextCharge", "Tashloumim", "KevaTashlumim", "kevaTashlumim", "remainingPayments", "remainingInstallments"];
+
+// IMPORTANT: these are identity/row fields, not every possible balance field.
+// A previous version included broad keys such as "יתרה" here. That caused wrapper objects
+// returned by Nedarim to be mistaken for an actual standing-order row, so recursion stopped
+// before reaching the real orders and importedKeva became 0.
+const KEVA_ID_KEYS = ["KevaId", "KevaID", "HoraatKevaId", "HoraaId", "StandingOrderId", "RecurringId"];
+const KEVA_ROW_HINT_KEYS = [
+  "ClientName", "Name", "FirstName", "Phone", "Mail", "Amount", "SchumHiyuv",
+  "KevaAmount", "StartFrom", "NextDate", "LastNum", "PaymentType", "Groupe", "Category"
+];
+const KEVA_BALANCE_KEYS = [
+  "KevaTashlumim", "kevaTashlumim", "KevaTashloumim", "kevaTashloumim",
+  "YitratTashloumim", "YitratTashlumim", "Yitra", "YitratChiyuvim",
+  "YitratHiyuvim", "YitratHiuvim", "RemainingPayments", "RemainingInstallments",
+  "RemainingCharges", "remainingPayments", "remainingInstallments", "remainingCharges",
+  "יתרת חיובים", "יתרת תשלומים", "יתרת חיוב", "יתרה לחיוב", "יתרה לתשלום", "יתרה"
+];
+
+function looksLikeActualKevaRow(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const hasId = KEVA_ID_KEYS.some((k) => Object.prototype.hasOwnProperty.call(value, k) && String(value[k] ?? '').trim() !== '');
+  const hintCount = KEVA_ROW_HINT_KEYS.reduce((n, k) => n + (Object.prototype.hasOwnProperty.call(value, k) && String(value[k] ?? '').trim() !== '' ? 1 : 0), 0);
+  const hasBalance = KEVA_BALANCE_KEYS.some((k) => Object.prototype.hasOwnProperty.call(value, k) && String(value[k] ?? '').trim() !== '');
+  const paymentType = String(value.PaymentType || value.paymentType || value.TransactionType || '').toLowerCase();
+  const recurringMarker = /(^|[^a-z])hk([^a-z]|$)|keva|horaat|recurring|הוראת\s*קבע|קבע/.test(paymentType + ' ' + String(value.Notes || value.Comments || ''));
+
+  // An explicit standing-order ID is sufficient. Otherwise require at least two real row hints,
+  // plus either a balance field or an explicit recurring marker.
+  return hasId || (hintCount >= 2 && (hasBalance || recurringMarker));
+}
 
 function collectRows(value, out = [], depth = 0, mode = "transaction") {
   if (depth > 9 || value == null) return out;
@@ -210,9 +251,13 @@ function collectRows(value, out = [], depth = 0, mode = "transaction") {
   if (typeof value !== "object") return out;
 
   const looksLikeTransaction = TX_KEYS.some((k) => Object.prototype.hasOwnProperty.call(value, k));
-  const looksLikeKeva = KEVA_KEYS.some((k) => Object.prototype.hasOwnProperty.call(value, k));
+  const looksLikeKeva = looksLikeActualKevaRow(value);
 
-  if ((mode === "transaction" && looksLikeTransaction) || (mode === "keva" && (looksLikeKeva || looksLikeTransaction))) {
+  if (mode === "transaction" && looksLikeTransaction) {
+    out.push(value);
+    return out;
+  }
+  if (mode === "keva" && looksLikeKeva) {
     out.push(value);
     return out;
   }
@@ -551,7 +596,9 @@ exports.handler = async function (event) {
         historyRawPreview: lastRawPreview,
         historyFirstRowKeys: allRows[0] ? Object.keys(allRows[0]).slice(0, 80) : [],
         kevaAttempts: kevaInfo.attempts,
-        kevaFirstRowKeys: kevaRows[0] ? Object.keys(kevaRows[0]).slice(0, 100) : []
+        kevaFirstRowKeys: kevaRows[0] ? Object.keys(kevaRows[0]).slice(0, 100) : [],
+        kevaFirstRowPreview: kevaRows[0] || null,
+        kevaMatchedCount: filteredKeva.length
       } : undefined
     });
   } catch (error) {
