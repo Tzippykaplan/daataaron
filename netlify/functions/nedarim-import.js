@@ -71,24 +71,23 @@ function cleanNumber(value) {
   return Number.isFinite(n) ? n : 0;
 }
 
-function parseCountValue(value, mode = "first") {
-  if (value == null || value === "") return 0;
-  if (typeof value === "number" && Number.isFinite(value)) return Math.max(0, Math.floor(value));
-  const txt = String(value);
-  const matches = txt.match(/\d+/g);
-  if (!matches || !matches.length) return 0;
-  const nums = matches.map((m) => Number(m)).filter((n) => Number.isFinite(n));
-  if (!nums.length) return 0;
-  if (mode === "max") return Math.max(...nums);
-  if (mode === "last") return nums[nums.length - 1];
-  return nums[0];
-}
-
-function getFieldLoose(obj, aliases) {
-  if (!obj || typeof obj !== "object") return "";
-  const wanted = aliases.map((a) => String(a).toLowerCase());
-  for (const [key, value] of Object.entries(obj)) {
-    if (wanted.includes(String(key).toLowerCase()) && value != null && value !== "") return value;
+function getKevaTashlumim(tx) {
+  if (!tx || typeof tx !== "object") return "";
+  const candidates = [
+    tx.KevaTashlumim,
+    tx.kevaTashlumim,
+    tx.YitratTashloumim,
+    tx.YitratTashlumim,
+    tx.Yitra,
+    tx.remainingPayments,
+    tx.remainingInstallments,
+    tx.Tashloumim,
+    tx.Tashlumim
+  ];
+  for (const value of candidates) {
+    if (value == null || String(value).trim() === "") continue;
+    const digits = String(value).replace(/[^0-9]/g, "");
+    return digits || String(value).trim();
   }
   return "";
 }
@@ -189,7 +188,7 @@ function parseMaybeJsonString(value) {
 }
 
 const TX_KEYS = ["TransactionId", "transactionId", "TransactionTime", "Amount", "ClientName", "Groupe", "KabalaId", "Shovar", "KevaId"];
-const KEVA_KEYS = ["KevaId", "KevaID", "HoraatKevaId", "HoraaId", "Day", "StartFrom", "Yitra", "YitratTashloumim", "Bitzua", "LastNum", "NextDate", "NextCharge", "Tashloumim"];
+const KEVA_KEYS = ["KevaId", "KevaID", "HoraatKevaId", "HoraaId", "Day", "StartFrom", "Yitra", "YitratTashloumim", "Bitzua", "LastNum", "NextDate", "NextCharge", "Tashloumim", "KevaTashlumim", "kevaTashlumim", "remainingPayments", "remainingInstallments"];
 
 function collectRows(value, out = [], depth = 0, mode = "transaction") {
   if (depth > 9 || value == null) return out;
@@ -231,18 +230,9 @@ function parseResponse(raw, mode = "transaction") {
 }
 
 function isInactiveKeva(tx) {
-  const kevaStatus = Number(String(tx.KevaStatus || tx.kevaStatus || "").replace(/[^0-9]/g, "")) || 0;
-  if (kevaStatus === 2 || kevaStatus === 3) return true;
   const raw = [tx.Status, tx.status, tx.Active, tx.IsActive, tx.Cancelled, tx.Canceled, tx.Bitual, tx.Notes, tx.Comments]
     .filter((v) => v != null).join(" ").toLowerCase();
   return /מבוטל|בוטל|cancel|inactive|לא\s*פעיל|הופסק|false/.test(raw);
-}
-
-function extractFundraiserName(comment) {
-  const text = String(comment || "");
-  const parts = text.split("|");
-  if (parts.length < 2) return "";
-  return parts[parts.length - 1].trim();
 }
 
 function mapHistoryToDashboardDonor(tx, index, mosadId) {
@@ -250,22 +240,19 @@ function mapHistoryToDashboardDonor(tx, index, mosadId) {
   const amount = getAmount(tx);
   const currencyCode = String(tx.Currency || tx.currency || "1").trim();
   const currency = currencyCode === "2" || /dollar|usd|\$|דולר/i.test(currencyCode) ? "USD" : "ILS";
-  const installmentsRaw = getFieldLoose(tx, [
-    "Tashloumim", "Tashlumim", "TashloumimCount", "Payments", "Installments", "NumPayments", "PaymentsCount", "MesTashlumim"
-  ]);
-  const installments = Math.max(1, parseCountValue(installmentsRaw, "max") || 1);
+  const installmentsRaw = tx.Tashloumim || tx.Tashlumim || tx.TashloumimCount || tx.Payments || "";
+  const installments = Math.max(1, Number(String(installmentsRaw || "1").replace(/[^0-9]/g, "")) || 1);
   const transactionTime = parseDate(tx.TransactionTime || tx.TransactionDate || tx.Date || tx.CreatedAt || tx.Time);
   const category = tx.Groupe || tx.Group || tx.Category || "נציבי דעת אהרן";
   const comments = tx.Comments || tx.Comment || tx.Notes || "";
-  const donorName = extractFundraiserName(comments);
   const clientName = tx.ClientName || tx.Name || [tx.FirstName, tx.LastName].filter(Boolean).join(" ") || "תורם מנדרים פלוס";
   const frequency = detectDonationFrequency(tx, installments);
+  const kevaTashlumim = getKevaTashlumim(tx);
   const monthlyAmount = cleanNumber(tx.NextTashloum || tx.NextTashlum) || (installments > 1 ? Math.round((amount / installments) * 100) / 100 : amount);
 
   return {
     id: `nedarim-${mosadId}-tx-${key}`,
     fullName: clientName,
-    donorName,
     phone: tx.Phone || "",
     email: tx.Mail || tx.Email || "",
     address: tx.Adresse || tx.Address || tx.Street || "",
@@ -290,6 +277,11 @@ function mapHistoryToDashboardDonor(tx, index, mosadId) {
     donationFrequency: frequency.kind,
     donationFrequencyLabel: frequency.label,
     paymentInstallments: installments,
+    kevaTashlumim: kevaTashlumim || "",
+    KevaTashlumim: kevaTashlumim || "",
+    remainingPayments: kevaTashlumim || "",
+    remainingInstallments: kevaTashlumim || "",
+    remainingCharges: kevaTashlumim || Math.max(0, installments - 1),
     monthlyAmount,
     installmentAmount: monthlyAmount,
     totalCommitment: amount,
@@ -301,11 +293,11 @@ function mapHistoryToDashboardDonor(tx, index, mosadId) {
       "ייבוא חיצוני מנדרים פלוס - הכנסות",
       `מספר עסקה: ${key}`,
       tx.KevaId ? `מזהה הוראת קבע: ${tx.KevaId}` : "",
+      kevaTashlumim ? `יתרת תשלומים: ${kevaTashlumim}` : "",
       tx.Shovar ? `שובר: ${tx.Shovar}` : "",
       tx.Confirmation ? `אישור: ${tx.Confirmation}` : "",
       tx.MasofName ? `עמדה: ${tx.MasofName}` : "",
       frequency.label ? `סוג תרומה: ${frequency.label}` : "",
-      donorName ? `שם המתרים: ${donorName}` : "",
       comments ? `הערות נדרים: ${comments}` : ""
     ].filter(Boolean).join(" · "),
     createdAt: transactionTime || new Date().toISOString(),
@@ -315,39 +307,25 @@ function mapHistoryToDashboardDonor(tx, index, mosadId) {
 
 function mapKevaToDashboardDonor(tx, index, mosadId) {
   const key = kevaKey(tx, index, mosadId);
-  const amount = cleanNumber(getFieldLoose(tx, ["KevaAmount", "Amount", "SchumHiyuv", "MonthlyAmount", "NextTashloum", "Tashloum", "HoraahAmount"])) || getAmount(tx);
-  const currencyCode = String(getFieldLoose(tx, ["KevaCurrency", "Currency", "currency"]) || "1").trim();
+  const amount = getAmount(tx);
+  const currencyCode = String(tx.Currency || tx.currency || "1").trim();
   const currency = currencyCode === "2" || /dollar|usd|\$|דולר/i.test(currencyCode) ? "USD" : "ILS";
-  const installmentsRaw = parseCountValue(getFieldLoose(tx, [
-    "KevaTashlumim", "Tashloumim", "Tashlumim", "Payments", "Installments", "NumPayments", "PaymentsCount", "MesTashlumim", "TashloumimCount"
-  ]), "max");
-  const remainingCharges = parseCountValue(getFieldLoose(tx, [
-    "KevaTashlumim", "YitratTashloumim", "Yitra", "RemainingCharges", "RemainingInstallments", "ChargesLeft", "LeftCharges", "YitratHiuvim", "YitraHiuvim"
-  ]), "first");
-  const completedCharges = parseCountValue(getFieldLoose(tx, [
-    "KevaSuccess", "HistoryCount", "Bitzua", "CompletedCharges", "CompletedInstallments", "ChargesDone", "PaidCharges", "HiyuvimBitzua"
-  ]), "first");
-  const inferredTotalCharges = remainingCharges + completedCharges;
-  const totalCharges = Math.max(1, remainingCharges, installmentsRaw, inferredTotalCharges);
-  const category = tx.KevaGroupe || tx.Groupe || tx.Group || tx.Category || "נציבי דעת אהרן";
-  const comments = tx.KevaAvour || tx.Comments || tx.Comment || tx.Notes || tx.Avour || "";
-  const donorName = extractFundraiserName(comments);
-  const clientName = tx.KevaName || tx.ClientName || tx.Name || [tx.FirstName, tx.LastName].filter(Boolean).join(" ") || "תורם הוראת קבע מנדרים פלוס";
-  const startDate = parseDate(tx.CreatedDate || tx.StartFrom || tx.StartDate || tx.CreatedAt || tx.Date || tx.OpenDate || tx.TransactionTime) || new Date().toISOString();
-  const nextChargeDate = parseDate(tx.KevaNextDate || tx.NextDate || tx.NextCharge || tx.ChargeDate || tx.HiyuvHaba || tx.HiyuvDate || tx.DateHiyuv, { allowFuture: true });
-  const dayOfCharge = nextChargeDate ? String(new Date(nextChargeDate).getDate()) : String(tx.Day || tx.DayC || tx.ChargeDay || tx.HiyuvDay || "").replace(/[^0-9]/g, "");
-  const statusCode = Number(String(tx.KevaStatus || "").replace(/[^0-9]/g, "")) || 0;
-  const frequencyCode = Number(String(tx.KevaFrequency || "").replace(/[^0-9]/g, "")) || 0;
-  const frequencyLabel = frequencyCode === 2 ? "שבועי" : frequencyCode === 3 ? "יזכור" : "חודשי";
-  const totalHistoryAmount = cleanNumber(tx.TotalHistoryAmount || 0);
+  const installments = Math.max(1, Number(String(tx.Tashloumim || tx.Tashlumim || tx.Payments || tx.YitratTashloumim || "1").replace(/[^0-9]/g, "")) || 1);
+  // Nedarim Plus recurring orders expose KevaTashlumim as the remaining number of payments.
+  const kevaTashlumim = getKevaTashlumim(tx);
+  const category = tx.Groupe || tx.Group || tx.Category || "נציבי דעת אהרן";
+  const comments = tx.Comments || tx.Comment || tx.Notes || tx.Avour || "";
+  const clientName = tx.ClientName || tx.Name || [tx.FirstName, tx.LastName].filter(Boolean).join(" ") || "תורם הוראת קבע מנדרים פלוס";
+  const startDate = parseDate(tx.StartFrom || tx.StartDate || tx.CreatedAt || tx.Date || tx.OpenDate || tx.TransactionTime) || new Date().toISOString();
+  const nextChargeDate = parseDate(tx.NextDate || tx.NextCharge || tx.ChargeDate || tx.HiyuvHaba || tx.HiyuvDate || tx.DateHiyuv, { allowFuture: true });
+  const dayOfCharge = String(tx.Day || tx.DayC || tx.ChargeDay || tx.HiyuvDay || "").replace(/[^0-9]/g, "");
 
   return {
     id: `nedarim-${mosadId}-keva-${key}`,
     fullName: clientName,
-    donorName,
-    phone: tx.KevaPhone || tx.Phone || "",
-    email: tx.KevaMail || tx.Mail || tx.Email || "",
-    address: [tx.KevaAdresse, tx.KevaCity].filter(Boolean).join(" ") || tx.Adresse || tx.Address || tx.Street || "",
+    phone: tx.Phone || "",
+    email: tx.Mail || tx.Email || "",
+    address: tx.Adresse || tx.Address || tx.Street || "",
     category,
     isExternalDonation: true,
     importedFromNedarim: true,
@@ -368,13 +346,15 @@ function mapKevaToDashboardDonor(tx, index, mosadId) {
     paymentTypeRaw: "HK",
     donationFrequency: "recurring",
     donationFrequencyLabel: "הוראת קבע",
-    paymentInstallments: totalCharges,
-    remainingCharges,
-    completedCharges,
-    totalCharges,
+    paymentInstallments: installments,
+    kevaTashlumim,
+    KevaTashlumim: kevaTashlumim,
+    remainingPayments: kevaTashlumim,
+    remainingInstallments: kevaTashlumim,
+    remainingCharges: kevaTashlumim,
     monthlyAmount: amount,
     installmentAmount: amount,
-    totalCommitment: amount * totalCharges,
+    totalCommitment: amount,
     currentMonthAmount: amount,
     paymentDate: startDate,
     startDate,
@@ -385,16 +365,10 @@ function mapKevaToDashboardDonor(tx, index, mosadId) {
     notes: [
       "ייבוא חיצוני מנדרים פלוס - הוראת קבע",
       `מזהה הוראת קבע: ${key}`,
-      statusCode ? `סטטוס הוראת קבע: ${statusCode}` : "",
-      frequencyCode ? `תדירות גביה: ${frequencyLabel} (${frequencyCode})` : "",
-      totalCharges ? `סה״כ חיובים: ${totalCharges}` : "",
-      remainingCharges ? `יתרת חיובים: ${remainingCharges}` : "",
-      completedCharges ? `חיובים שבוצעו: ${completedCharges}` : "",
-      totalHistoryAmount ? `סכום שחוייב עד כה: ${totalHistoryAmount}` : "",
+      kevaTashlumim ? `יתרת תשלומים: ${kevaTashlumim}` : "",
       dayOfCharge ? `יום חיוב: ${dayOfCharge}` : "",
       nextChargeDate ? `חיוב הבא: ${nextChargeDate.slice(0, 10)}` : "",
-      (tx.KevaLastNum || tx.LastNum) ? `כרטיס: *${tx.KevaLastNum || tx.LastNum}` : "",
-      donorName ? `שם המתרים: ${donorName}` : "",
+      tx.LastNum ? `כרטיס: *${tx.LastNum}` : "",
       comments ? `הערות נדרים: ${comments}` : ""
     ].filter(Boolean).join(" · "),
     createdAt: startDate,
@@ -409,58 +383,6 @@ function groupSummary(rows) {
     map.set(group, (map.get(group) || 0) + 1);
   }
   return Array.from(map.entries()).sort((a, b) => b[1] - a[1]).slice(0, 40).map(([name, count]) => ({ name, count }));
-}
-
-function pickFirstNonEmpty(tx, aliases) {
-  if (!tx || typeof tx !== "object") return "";
-  const wanted = aliases.map((a) => String(a).toLowerCase());
-  for (const [key, value] of Object.entries(tx)) {
-    if (!wanted.includes(String(key).toLowerCase())) continue;
-    if (value == null) continue;
-    const s = String(value).trim();
-    if (!s) continue;
-    return { key, value };
-  }
-  return { key: "", value: "" };
-}
-
-function kevaFieldProbe(rows, limit = 5) {
-  return (rows || []).slice(0, Math.max(1, limit)).map((tx, idx) => {
-    const installments = pickFirstNonEmpty(tx, [
-      "Tashloumim", "Tashlumim", "Payments", "Installments", "NumPayments", "PaymentsCount", "MesTashlumim", "TashloumimCount"
-    ]);
-    const remaining = pickFirstNonEmpty(tx, [
-      "YitratTashloumim", "Yitra", "RemainingCharges", "RemainingInstallments", "ChargesLeft", "LeftCharges", "YitratHiuvim", "YitraHiuvim"
-    ]);
-    const completed = pickFirstNonEmpty(tx, [
-      "Bitzua", "CompletedCharges", "CompletedInstallments", "ChargesDone", "PaidCharges", "HiyuvimBitzua"
-    ]);
-    const paymentType = pickFirstNonEmpty(tx, [
-      "PaymentType", "TransactionType", "Type", "HK", "HoraatKeva", "Keva"
-    ]);
-    const amount = pickFirstNonEmpty(tx, [
-      "Amount", "Sum", "Total", "Schum", "SchumHiyuv", "MonthlyAmount", "NextTashloum", "Tashloum", "HoraahAmount"
-    ]);
-
-    const interestingKeys = Object.keys(tx || {}).filter((k) =>
-      /(tash|תשל|yitr|yitra|bitz|hiyuv|חיוב|תשלום|payment|install|keva|hora)/i.test(String(k))
-    );
-
-    return {
-      index: idx,
-      id: tx.KevaId || tx.KevaID || tx.HoraatKevaId || tx.HoraaId || tx.Id || tx.id || "",
-      detected: {
-        installments,
-        remaining,
-        completed,
-        paymentType,
-        amount
-      },
-      interestingKeys,
-      keyCount: Object.keys(tx || {}).length,
-      allKeys: Object.keys(tx || {})
-    };
-  });
 }
 
 async function fetchHistoryPage({ mosadId, apiPassword, lastId, maxId, omitLastId }) {
@@ -537,7 +459,6 @@ exports.handler = async function (event) {
   const maxId = Number(query.maxId || process.env.NEDARIM_MAX_ID || 500) || 500;
   const pages = Math.max(1, Math.min(Number(query.pages || process.env.NEDARIM_IMPORT_PAGES || (full ? 20 : 1)) || 1, 50));
   const debug = query.debug === "1" || query.debug === "true";
-  const debugFields = query.debugFields === "1" || query.debugFields === "true";
   const includeKeva = query.includeKeva !== "0" && query.includeKeva !== "false";
 
   if (!apiPassword) {
@@ -612,9 +533,6 @@ exports.handler = async function (event) {
         historyFirstRowKeys: allRows[0] ? Object.keys(allRows[0]).slice(0, 80) : [],
         kevaAttempts: kevaInfo.attempts,
         kevaFirstRowKeys: kevaRows[0] ? Object.keys(kevaRows[0]).slice(0, 100) : []
-      } : undefined,
-      debugFields: debugFields ? {
-        kevaProbe: kevaFieldProbe(kevaRows, Number(query.debugLimit || 5) || 5)
       } : undefined
     });
   } catch (error) {
