@@ -248,7 +248,8 @@
 
     if (value !== undefined && value !== null && String(value).trim() !== '') {
       const str = String(value).trim();
-      return str.replace(/[^0-9]/g, '') || str;
+      const digits = str.replace(/[^0-9]/g, '');
+      if (digits !== '') return digits;
     }
     const notes = String((d && d.notes) || '');
     const m = notes.match(/(?:יתרת\s*(?:תשלומים|חיובים)|נותרו|remaining\s*(?:payments|installments|charges))\D{0,20}(\d+)/i);

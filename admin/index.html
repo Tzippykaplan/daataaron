@@ -3557,7 +3557,7 @@ function json(obj) {
     for (const v of candidates) {
       if (v === undefined || v === null) continue;
       const str = String(v).trim();
-      if (str !== '') return str.replace(/[^0-9]/g, '') || str;
+      if (str !== '') { const digits = str.replace(/[^0-9]/g, ''); if (digits !== '') return digits; }
     }
     const notes = String(d.notes || '');
     const m = notes.match(/(?:יתרת\s*(?:תשלומים|חיובים)|נותרו|remaining\s*(?:payments|installments|charges))\D{0,20}(\d+)/i);
@@ -3590,6 +3590,10 @@ function json(obj) {
       if (!d.paymentType && f.key !== 'recurring') { d.paymentType = 'Ragil'; changed = true; }
       const looksNedarim = /nedarim|נדרים/i.test([d.source, d.paymentProcessor, d.processor, d.notes, d.category].filter(Boolean).join(' '));
       if (looksNedarim) {
+        // Clean corrupted Keva fields from older sync versions, e.g. "Nedarim Plus" accidentally saved as remainingCharges.
+        ['KevaTashlumim','kevaTashlumim','KevaTashloumim','kevaTashloumim','remainingPayments','remainingInstallments','remainingCharges'].forEach(function(k){
+          if (d[k] !== undefined && d[k] !== null && String(d[k]).trim() !== '' && !/\d/.test(String(d[k]))) { d[k] = ''; changed = true; }
+        });
         const parsed = parseDonationDate(d);
         if (parsed && !isNaN(parsed)) {
           const iso = parsed.toISOString();
@@ -4022,7 +4026,7 @@ function json(obj) {
     for(const v of candidates){
       if(v === undefined || v === null) continue;
       const str = String(v).trim();
-      if(str !== '') return str.replace(/[^0-9]/g, '') || str;
+      if(str !== '') { const digits = str.replace(/[^0-9]/g, ''); if(digits !== '') return digits; }
     }
     const m = String(d.notes || '').match(/(?:יתרת\s*(?:תשלומים|חיובים)|נותרו|remaining\s*(?:payments|installments|charges))\D{0,20}(\d+)/i);
     return m ? m[1] : '';
