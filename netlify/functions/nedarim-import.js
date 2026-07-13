@@ -292,7 +292,11 @@ function mapKevaToDashboardDonor(tx, index, mosadId) {
   const amount = getAmount(tx);
   const currencyCode = String(tx.Currency || tx.currency || "1").trim();
   const currency = currencyCode === "2" || /dollar|usd|\$|דולר/i.test(currencyCode) ? "USD" : "ILS";
-  const installments = Math.max(1, Number(String(tx.Tashloumim || tx.Tashlumim || tx.Payments || tx.YitratTashloumim || "1").replace(/[^0-9]/g, "")) || 1);
+  const installmentsRaw = Number(String(tx.Tashloumim || tx.Tashlumim || tx.Payments || tx.YitratTashloumim || "").replace(/[^0-9]/g, "")) || 0;
+  const remainingCharges = Math.max(0, Number(String(tx.YitratTashloumim || tx.Yitra || "").replace(/[^0-9]/g, "")) || 0);
+  const completedCharges = Math.max(0, Number(String(tx.Bitzua || "").replace(/[^0-9]/g, "")) || 0);
+  const inferredTotalCharges = remainingCharges + completedCharges;
+  const totalCharges = Math.max(1, installmentsRaw, inferredTotalCharges);
   const category = tx.Groupe || tx.Group || tx.Category || "נציבי דעת אהרן";
   const comments = tx.Comments || tx.Comment || tx.Notes || tx.Avour || "";
   const donorName = extractFundraiserName(comments);
@@ -328,10 +332,13 @@ function mapKevaToDashboardDonor(tx, index, mosadId) {
     paymentTypeRaw: "HK",
     donationFrequency: "recurring",
     donationFrequencyLabel: "הוראת קבע",
-    paymentInstallments: installments,
+    paymentInstallments: totalCharges,
+    remainingCharges,
+    completedCharges,
+    totalCharges,
     monthlyAmount: amount,
     installmentAmount: amount,
-    totalCommitment: amount,
+    totalCommitment: amount * totalCharges,
     currentMonthAmount: amount,
     paymentDate: startDate,
     startDate,
@@ -342,6 +349,9 @@ function mapKevaToDashboardDonor(tx, index, mosadId) {
     notes: [
       "ייבוא חיצוני מנדרים פלוס - הוראת קבע",
       `מזהה הוראת קבע: ${key}`,
+      totalCharges ? `סה״כ חיובים: ${totalCharges}` : "",
+      remainingCharges ? `יתרת חיובים: ${remainingCharges}` : "",
+      completedCharges ? `חיובים שבוצעו: ${completedCharges}` : "",
       dayOfCharge ? `יום חיוב: ${dayOfCharge}` : "",
       nextChargeDate ? `חיוב הבא: ${nextChargeDate.slice(0, 10)}` : "",
       tx.LastNum ? `כרטיס: *${tx.LastNum}` : "",

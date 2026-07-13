@@ -507,6 +507,8 @@
   </div>
 
   <script>
+    const DEBUG_RECURRING = new URLSearchParams(window.location.search).get('debugRecurring') === '1';
+
     const CONFIG = {
       APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbxDR_PiR9H2qcYM35vARU2HsugG5ZkQ3_AdzuK-yHcf83bcmzHCshfhR-ElR5yR-do4Bg/exec'
     };
@@ -672,17 +674,148 @@
       return cleanNum(d && (d.currentMonthAmount || d.monthlyAmount || d.installmentAmount || d.amount || d.chargedAmount));
     }
 
+    function donorInstallmentsSafe(d) {
+      const tx = (d && d.rawNedarim) || {};
+      const n = cleanNum(
+        d && (
+          d.totalCharges ||
+          d.paymentInstallments ||
+          d.installments ||
+          d.tashlumim ||
+          d.Tashlumim ||
+          d.tashlumimCount ||
+          d.paymentsCount ||
+          tx.Tashloumim ||
+          tx.Tashlumim ||
+          tx.tashlumim ||
+          tx.Payments
+        )
+      );
+      return n > 0 ? Math.max(1, Math.round(n)) : 0;
+    }
+
+    function totalDonationAmount(d) {
+      const f = donationFrequency(d);
+      if (f.key !== 'recurring') return cleanNum(d && d.amount);
+
+      const tx = (d && d.rawNedarim) || {};
+      const baseAmount = cleanNum(d && d.amount);
+      const chargeAmount = cleanNum(
+        d && (
+          d.currentMonthAmount ||
+          d.monthlyAmount ||
+          d.installmentAmount ||
+          d.amount ||
+          d.chargedAmount
+        )
+      ) || cleanNum(
+        tx.SchumHiyuv ||
+        tx.MonthlyAmount ||
+        tx.NextTashloum ||
+        tx.Tashloum ||
+        tx.HoraahAmount ||
+        tx.Amount
+      );
+
+      const totalCharges = donorInstallmentsSafe(d);
+
+      const remainingCharges = cleanNum(
+        d && (d.remainingCharges || d.remainingInstallments || d.yitratTashloumim)
+      ) || cleanNum(tx.YitratTashloumim || tx.Yitra);
+      const completedCharges = cleanNum(
+        d && (d.completedCharges || d.completedInstallments || d.bitzua)
+      ) || cleanNum(tx.Bitzua);
+      const countFromProgress = remainingCharges + completedCharges;
+      let bestCount = 0;
+      if (remainingCharges > 0) bestCount = remainingCharges;
+      else if (totalCharges > 0) bestCount = totalCharges;
+      else if (countFromProgress > 0) bestCount = countFromProgress;
+
+      if (chargeAmount > 0 && bestCount > 0) return chargeAmount * bestCount;
+
+      const explicitTotal = cleanNum(d && (d.totalCommitment || d.pledgeAmount));
+      if (explicitTotal > 0) return explicitTotal;
+
+      return baseAmount;
+    }
+
+    function recurringDebugInfo(d) {
+      d = d || {};
+      const tx = d.rawNedarim || {};
+
+      const baseAmount = cleanNum(d.amount);
+      const chargeAmount = cleanNum(
+        d.currentMonthAmount ||
+        d.monthlyAmount ||
+        d.installmentAmount ||
+        d.amount ||
+        d.chargedAmount ||
+        tx.SchumHiyuv ||
+        tx.MonthlyAmount ||
+        tx.NextTashloum ||
+        tx.Tashloum ||
+        tx.HoraahAmount ||
+        tx.Amount
+      );
+
+      const totalCharges = donorInstallmentsSafe(d);
+      const remainingCharges = cleanNum(d.remainingCharges || d.remainingInstallments || d.yitratTashloumim || tx.YitratTashloumim || tx.Yitra);
+      const completedCharges = cleanNum(d.completedCharges || d.completedInstallments || d.bitzua || tx.Bitzua);
+      const countFromProgress = remainingCharges + completedCharges;
+
+      let bestCount = 0;
+      let bestSource = 'none';
+      if (remainingCharges > 0) { bestCount = remainingCharges; bestSource = 'remainingCharges'; }
+      else if (totalCharges > 0) { bestCount = totalCharges; bestSource = 'paymentInstallments/totalCharges'; }
+      else if (countFromProgress > 0) { bestCount = countFromProgress; bestSource = 'remaining+completed'; }
+
+      return {
+        isRecurring: donationFrequency(d).key === 'recurring',
+        baseAmount,
+        chargeAmount,
+        totalCharges,
+        remainingCharges,
+        completedCharges,
+        countFromProgress,
+        bestCount,
+        bestSource,
+        displayedAmount: totalDonationAmount(d)
+      };
+    }
+
+    function recurringDebugText(d) {
+      const i = recurringDebugInfo(d);
+      return [
+        'DBG',
+        'recurring=' + (i.isRecurring ? '1' : '0'),
+        'base=' + i.baseAmount,
+        'charge=' + i.chargeAmount,
+        'remaining=' + i.remainingCharges,
+        'completed=' + i.completedCharges,
+        'installments=' + i.totalCharges,
+        'picked=' + i.bestCount,
+        'src=' + i.bestSource,
+        'shown=' + i.displayedAmount
+      ].join(' | ');
+    }
+
     function donationFrequency(d) {
       d = d || {};
-      const raw = [
-        d.donationFrequency,
-        d.donationFrequencyLabel,
-        d.paymentType,
-        d.paymentTypeRaw,
-        d.notes,
-        d.rawNedarim && (d.rawNedarim.PaymentType || d.rawNedarim.TransactionType)
-      ].filter(Boolean).join(' ').toLowerCase();
-      if (/recurring|(^|[^a-z])hk([^a-z]|$)|הוראת\s*קבע|קבע|standing\s*order|horaat|keva/.test(raw)) {
+      const tx = d.rawNedarim || {};
+
+      if (
+        d.source === 'nedarim_recurring' ||
+        d.donationFrequency === 'recurring' ||
+        String(d.paymentType || '').toUpperCase() === 'HK' ||
+        String(d.paymentTypeRaw || '').toUpperCase() === 'HK' ||
+        cleanNum(d.totalCharges) > 1 ||
+        cleanNum(d.remainingCharges) > 0 ||
+        cleanNum(d.completedCharges) > 0 ||
+        cleanNum(d.paymentInstallments) > 1 ||
+        cleanNum(tx.Tashloumim || tx.Tashlumim || tx.Payments) > 1 ||
+        cleanNum(tx.YitratTashloumim || tx.Yitra) > 0 ||
+        cleanNum(tx.Bitzua) > 0
+      ) {
         return { key: 'recurring', label: 'הוראת קבע' };
       }
       const n = cleanNum(d.paymentInstallments || 1);
@@ -759,10 +892,7 @@
     }
 
     function fmtAmount(d) {
-      const amountRaw = (d && d.amount);
-      const n = typeof amountRaw === 'number'
-        ? amountRaw
-        : (Number(String(amountRaw || '').replace(/,/g, '').replace(/[^0-9.-]/g, '')) || 0);
+      const n = totalDonationAmount(d);
       const c = donorCurrency(d);
       return (c === 'ILS' ? '₪' : '$') + n.toLocaleString('en-US');
     }
@@ -868,7 +998,7 @@
           donor: String((d && d.fullName) || '').trim(),
           fundraiser: fr,
           nedarimNote: donationSource(d),
-          amount: Number((d && d.amount) || 0) || 0
+          amount: totalDonationAmount(d)
         };
       });
     }
@@ -910,9 +1040,12 @@
       const tbody = q('tbody');
       const empty = q('emptyState');
       tbody.innerHTML = p.rows.map(function(r){
+        const debugLine = DEBUG_RECURRING
+          ? '<div style="margin-top:4px;font-size:11px;color:#64748b;line-height:1.35;">' + safe(recurringDebugText(r.raw)) + '</div>'
+          : '';
         return '<tr>' +
           '<td>' + safe(r.donor || '—') + '</td>' +
-          '<td>' + safe(fmtAmount(r.raw)) + '</td>' +
+          '<td>' + safe(fmtAmount(r.raw)) + debugLine + '</td>' +
           '<td>' + safe(r.fundraiser || '—') + '</td>' +
           '<td>' + safe(r.nedarimNote || '—') + '</td>' +
         '</tr>';
