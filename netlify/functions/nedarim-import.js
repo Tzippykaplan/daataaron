@@ -94,7 +94,9 @@ function getKevaTashlumim(tx) {
     const str = String(value).trim();
     if (str === "") continue;
     const digits = str.replace(/[^0-9]/g, "");
-    return digits !== "" ? digits : str;
+    if (digits !== "") return digits;
+    // Skip non-numeric values such as "Nedarim Plus" that may appear in loosely mapped fields.
+    continue;
   }
   return "";
 }
