@@ -71,46 +71,91 @@ function cleanNumber(value) {
   return Number.isFinite(n) ? n : 0;
 }
 
+function numericDigits(value) {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "number" && Number.isFinite(value)) return String(Math.max(0, Math.trunc(value)));
+  if (typeof value !== "string") return "";
+  const str = value.trim();
+  if (!str) return "";
+  // Accept a plain integer or a label such as "יתרת חיובים: 99".
+  const direct = str.match(/^\s*(\d{1,6})\s*$/);
+  if (direct) return direct[1];
+  const labeled = str.match(/(?:יתרת\s*(?:חיובים|תשלומים|חיוב)|remaining\s*(?:payments|installments|charges)|keva\s*tashl(?:u|ou)mim)\D{0,12}(\d{1,6})/i);
+  return labeled ? labeled[1] : "";
+}
+
+function normalizeKevaKey(key) {
+  return String(key || "")
+    .replace(/[\u200e\u200f\u202a-\u202e]/g, "")
+    .replace(/[^a-zA-Z0-9א-ת]/g, "")
+    .toLowerCase();
+}
+
 function getKevaTashlumim(tx) {
   if (!tx || typeof tx !== "object") return "";
-  // Explicit field from Nedarim Plus for remaining payments in a credit-card standing order.
-  // Do not fall back to normal Tashlumim here, because that may mean total months, not remaining months.
-  const candidates = [
-    tx.KevaTashlumim,
-    tx.kevaTashlumim,
-    tx.KevaTashloumim,
-    tx.kevaTashloumim,
-    tx.YitratTashloumim,
-    tx.YitratTashlumim,
-    tx.Yitra,
-      tx["יתרת חיובים"],
-      tx["יתרת תשלומים"],
-      tx["יתרת חיוב"],
-      tx["יתרה לחיוב"],
-      tx["יתרה לתשלום"],
-      tx["יתרה"],
-      tx.YitratChiyuvim,
-      tx.YitratHiyuvim,
-      tx.YitratHiuvim,
-      tx.RemainingPayments,
-      tx.RemainingInstallments,
-      tx.RemainingCharges,
-    tx.remainingPayments,
-    tx.remainingInstallments,
-    tx.remainingCharges,
-    tx.TashlumimLeft,
-    tx.tashlumimLeft
-  ];
-  for (const value of candidates) {
-    if (value === null || value === undefined) continue;
-    const str = String(value).trim();
-    if (str === "") continue;
-    const digits = str.replace(/[^0-9]/g, "");
-    if (digits !== "") return digits;
-    // Skip non-numeric values such as "Nedarim Plus" that may appear in loosely mapped fields.
-    continue;
+
+  const exactKeys = new Set([
+    "kevatahlumim", "kevatashlumim", "kevatashloumim",
+    "yitrattashloumim", "yitrattashlumim", "yitra",
+    "yitratchiyuvim", "yitrathiyuvim", "yitrathiuvim",
+    "remainingpayments", "remaininginstallments", "remainingcharges",
+    "tashlumimleft", "tashloumimleft",
+    "יתרתחיובים", "יתרתתשלומים", "יתרתחיוב", "יתרהלחיוב", "יתרהלתשלום"
+  ]);
+
+  const seen = new Set();
+  function walk(value, depth) {
+    if (depth > 10 || value === null || value === undefined) return "";
+
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (/^[\[{]/.test(trimmed)) {
+        try { return walk(JSON.parse(trimmed), depth + 1); } catch (_) {}
+      }
+      return "";
+    }
+    if (typeof value !== "object") return "";
+    if (seen.has(value)) return "";
+    seen.add(value);
+
+    // First pass: exact keys, including values nested inside wrappers returned by Nedarim.
+    for (const [key, fieldValue] of Object.entries(value)) {
+      const nk = normalizeKevaKey(key);
+      if (exactKeys.has(nk)) {
+        const n = numericDigits(fieldValue);
+        if (n !== "") return n;
+        const nested = walk(fieldValue, depth + 1);
+        if (nested !== "") return nested;
+      }
+    }
+
+    // Second pass: tolerate API spelling variants, but only when the key clearly refers to a balance/count.
+    for (const [key, fieldValue] of Object.entries(value)) {
+      const nk = normalizeKevaKey(key);
+      const isBalanceKey =
+        (/remaining/.test(nk) && /(payment|installment|charge)/.test(nk)) ||
+        (/yitrat|yitra/.test(nk) && /(tash|chiyuv|hiyuv|hiuv)/.test(nk)) ||
+        (/keva/.test(nk) && /tash/.test(nk)) ||
+        (/יתרת|יתרה/.test(nk) && /(תשלום|חיוב)/.test(nk));
+      if (isBalanceKey) {
+        const n = numericDigits(fieldValue);
+        if (n !== "") return n;
+      }
+    }
+
+    // Third pass: recursively inspect children.
+    for (const child of Object.values(value)) {
+      const found = walk(child, depth + 1);
+      if (found !== "") return found;
+    }
+    return "";
   }
-  return "";
+
+  const found = walk(tx, 0);
+  if (found !== "") return found;
+
+  // Last fallback: sometimes the dashboard already has the value only in the note text.
+  return numericDigits([tx.Notes, tx.notes, tx.Comments, tx.Comment].filter(Boolean).join(" · "));
 }
 
 function getAmount(tx) {
