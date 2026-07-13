@@ -71,6 +71,28 @@ function cleanNumber(value) {
   return Number.isFinite(n) ? n : 0;
 }
 
+function parseCountValue(value, mode = "first") {
+  if (value == null || value === "") return 0;
+  if (typeof value === "number" && Number.isFinite(value)) return Math.max(0, Math.floor(value));
+  const txt = String(value);
+  const matches = txt.match(/\d+/g);
+  if (!matches || !matches.length) return 0;
+  const nums = matches.map((m) => Number(m)).filter((n) => Number.isFinite(n));
+  if (!nums.length) return 0;
+  if (mode === "max") return Math.max(...nums);
+  if (mode === "last") return nums[nums.length - 1];
+  return nums[0];
+}
+
+function getFieldLoose(obj, aliases) {
+  if (!obj || typeof obj !== "object") return "";
+  const wanted = aliases.map((a) => String(a).toLowerCase());
+  for (const [key, value] of Object.entries(obj)) {
+    if (wanted.includes(String(key).toLowerCase()) && value != null && value !== "") return value;
+  }
+  return "";
+}
+
 function getAmount(tx) {
   return cleanNumber(
     tx.Amount ?? tx.amount ?? tx.Sum ?? tx.Total ?? tx.Schum ?? tx.SchumHiyuv ?? tx.MonthlyAmount ?? tx.NextTashloum ?? tx.Tashloum ?? tx.HoraahAmount
@@ -226,8 +248,10 @@ function mapHistoryToDashboardDonor(tx, index, mosadId) {
   const amount = getAmount(tx);
   const currencyCode = String(tx.Currency || tx.currency || "1").trim();
   const currency = currencyCode === "2" || /dollar|usd|\$|דולר/i.test(currencyCode) ? "USD" : "ILS";
-  const installmentsRaw = tx.Tashloumim || tx.Tashlumim || tx.TashloumimCount || tx.Payments || "";
-  const installments = Math.max(1, Number(String(installmentsRaw || "1").replace(/[^0-9]/g, "")) || 1);
+  const installmentsRaw = getFieldLoose(tx, [
+    "Tashloumim", "Tashlumim", "TashloumimCount", "Payments", "Installments", "NumPayments", "PaymentsCount", "MesTashlumim"
+  ]);
+  const installments = Math.max(1, parseCountValue(installmentsRaw, "max") || 1);
   const transactionTime = parseDate(tx.TransactionTime || tx.TransactionDate || tx.Date || tx.CreatedAt || tx.Time);
   const category = tx.Groupe || tx.Group || tx.Category || "נציבי דעת אהרן";
   const comments = tx.Comments || tx.Comment || tx.Notes || "";
@@ -292,9 +316,15 @@ function mapKevaToDashboardDonor(tx, index, mosadId) {
   const amount = getAmount(tx);
   const currencyCode = String(tx.Currency || tx.currency || "1").trim();
   const currency = currencyCode === "2" || /dollar|usd|\$|דולר/i.test(currencyCode) ? "USD" : "ILS";
-  const installmentsRaw = Number(String(tx.Tashloumim || tx.Tashlumim || tx.Payments || tx.YitratTashloumim || "").replace(/[^0-9]/g, "")) || 0;
-  const remainingCharges = Math.max(0, Number(String(tx.YitratTashloumim || tx.Yitra || "").replace(/[^0-9]/g, "")) || 0);
-  const completedCharges = Math.max(0, Number(String(tx.Bitzua || "").replace(/[^0-9]/g, "")) || 0);
+  const installmentsRaw = parseCountValue(getFieldLoose(tx, [
+    "Tashloumim", "Tashlumim", "Payments", "Installments", "NumPayments", "PaymentsCount", "MesTashlumim", "TashloumimCount"
+  ]), "max");
+  const remainingCharges = parseCountValue(getFieldLoose(tx, [
+    "YitratTashloumim", "Yitra", "RemainingCharges", "RemainingInstallments", "ChargesLeft", "LeftCharges", "YitratHiuvim", "YitraHiuvim"
+  ]), "first");
+  const completedCharges = parseCountValue(getFieldLoose(tx, [
+    "Bitzua", "CompletedCharges", "CompletedInstallments", "ChargesDone", "PaidCharges", "HiyuvimBitzua"
+  ]), "first");
   const inferredTotalCharges = remainingCharges + completedCharges;
   const totalCharges = Math.max(1, installmentsRaw, inferredTotalCharges);
   const category = tx.Groupe || tx.Group || tx.Category || "נציבי דעת אהרן";
@@ -372,6 +402,58 @@ function groupSummary(rows) {
   return Array.from(map.entries()).sort((a, b) => b[1] - a[1]).slice(0, 40).map(([name, count]) => ({ name, count }));
 }
 
+function pickFirstNonEmpty(tx, aliases) {
+  if (!tx || typeof tx !== "object") return "";
+  const wanted = aliases.map((a) => String(a).toLowerCase());
+  for (const [key, value] of Object.entries(tx)) {
+    if (!wanted.includes(String(key).toLowerCase())) continue;
+    if (value == null) continue;
+    const s = String(value).trim();
+    if (!s) continue;
+    return { key, value };
+  }
+  return { key: "", value: "" };
+}
+
+function kevaFieldProbe(rows, limit = 5) {
+  return (rows || []).slice(0, Math.max(1, limit)).map((tx, idx) => {
+    const installments = pickFirstNonEmpty(tx, [
+      "Tashloumim", "Tashlumim", "Payments", "Installments", "NumPayments", "PaymentsCount", "MesTashlumim", "TashloumimCount"
+    ]);
+    const remaining = pickFirstNonEmpty(tx, [
+      "YitratTashloumim", "Yitra", "RemainingCharges", "RemainingInstallments", "ChargesLeft", "LeftCharges", "YitratHiuvim", "YitraHiuvim"
+    ]);
+    const completed = pickFirstNonEmpty(tx, [
+      "Bitzua", "CompletedCharges", "CompletedInstallments", "ChargesDone", "PaidCharges", "HiyuvimBitzua"
+    ]);
+    const paymentType = pickFirstNonEmpty(tx, [
+      "PaymentType", "TransactionType", "Type", "HK", "HoraatKeva", "Keva"
+    ]);
+    const amount = pickFirstNonEmpty(tx, [
+      "Amount", "Sum", "Total", "Schum", "SchumHiyuv", "MonthlyAmount", "NextTashloum", "Tashloum", "HoraahAmount"
+    ]);
+
+    const interestingKeys = Object.keys(tx || {}).filter((k) =>
+      /(tash|תשל|yitr|yitra|bitz|hiyuv|חיוב|תשלום|payment|install|keva|hora)/i.test(String(k))
+    );
+
+    return {
+      index: idx,
+      id: tx.KevaId || tx.KevaID || tx.HoraatKevaId || tx.HoraaId || tx.Id || tx.id || "",
+      detected: {
+        installments,
+        remaining,
+        completed,
+        paymentType,
+        amount
+      },
+      interestingKeys,
+      keyCount: Object.keys(tx || {}).length,
+      allKeys: Object.keys(tx || {})
+    };
+  });
+}
+
 async function fetchHistoryPage({ mosadId, apiPassword, lastId, maxId, omitLastId }) {
   const url = new URL(NEDARIM_HISTORY_URL);
   url.searchParams.set("Action", "GetHistoryJson");
@@ -446,6 +528,7 @@ exports.handler = async function (event) {
   const maxId = Number(query.maxId || process.env.NEDARIM_MAX_ID || 500) || 500;
   const pages = Math.max(1, Math.min(Number(query.pages || process.env.NEDARIM_IMPORT_PAGES || (full ? 20 : 1)) || 1, 50));
   const debug = query.debug === "1" || query.debug === "true";
+  const debugFields = query.debugFields === "1" || query.debugFields === "true";
   const includeKeva = query.includeKeva !== "0" && query.includeKeva !== "false";
 
   if (!apiPassword) {
@@ -520,6 +603,9 @@ exports.handler = async function (event) {
         historyFirstRowKeys: allRows[0] ? Object.keys(allRows[0]).slice(0, 80) : [],
         kevaAttempts: kevaInfo.attempts,
         kevaFirstRowKeys: kevaRows[0] ? Object.keys(kevaRows[0]).slice(0, 100) : []
+      } : undefined,
+      debugFields: debugFields ? {
+        kevaProbe: kevaFieldProbe(kevaRows, Number(query.debugLimit || 5) || 5)
       } : undefined
     });
   } catch (error) {

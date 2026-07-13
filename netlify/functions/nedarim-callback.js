@@ -64,7 +64,8 @@ function extractFundraiserName(comment) {
 
 function parseCount(value) {
   if (value == null) return 0;
-  const n = Number(String(value).replace(/[^0-9]/g, ""));
+  const matches = String(value).match(/\d+/g);
+  const n = matches && matches.length ? Number(matches[0]) : 0;
   return Number.isFinite(n) ? n : 0;
 }
 
@@ -107,9 +108,15 @@ function normalizeCallbackPayload(data, mosadId) {
   const paymentTypeJoined = [paymentTypeRaw, comments].filter(Boolean).join(" ").toLowerCase();
   const isRecurring = /(^|[^a-z])hk([^a-z]|$)|הוראת\s*קבע|קבע|horaat|keva|standing\s*order|recurring/.test(paymentTypeJoined);
 
-  const explicitInstallments = parseCount(findValueDeep(data, ["Tashloumim", "Tashlumim", "Payments", "paymentInstallments", "Installments"]));
-  const remainingCharges = parseCount(findValueDeep(data, ["YitratTashloumim", "Yitra", "remainingCharges", "RemainingCharges", "remainingInstallments"]));
-  const completedCharges = parseCount(findValueDeep(data, ["Bitzua", "completedCharges", "completedInstallments"]));
+  const explicitInstallments = parseCount(findValueDeep(data, [
+    "Tashloumim", "Tashlumim", "Payments", "paymentInstallments", "Installments", "NumPayments", "PaymentsCount", "MesTashlumim"
+  ]));
+  const remainingCharges = parseCount(findValueDeep(data, [
+    "YitratTashloumim", "Yitra", "remainingCharges", "RemainingCharges", "remainingInstallments", "ChargesLeft", "LeftCharges", "YitratHiuvim", "YitraHiuvim"
+  ]));
+  const completedCharges = parseCount(findValueDeep(data, [
+    "Bitzua", "completedCharges", "completedInstallments", "CompletedCharges", "ChargesDone", "PaidCharges", "HiyuvimBitzua"
+  ]));
   const inferredTotalCharges = remainingCharges + completedCharges;
   const totalCharges = Math.max(explicitInstallments, inferredTotalCharges, isRecurring ? 1 : 0);
   const totalCommitment = isRecurring && totalCharges > 0 ? amount * totalCharges : amount;
