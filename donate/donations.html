@@ -645,9 +645,9 @@
       ];
       for (let i = 0; i < values.length; i += 1) {
         const v = values[i];
-        if (v !== undefined && v !== null && String(v).trim() !== '') return String(v).replace(/[^0-9]/g, '') || String(v);
+        if (v !== undefined && v !== null && String(v).trim() !== '') { const digits = String(v).replace(/[^0-9]/g, ''); if (digits !== '') return digits; }
       }
-      const m = String((d && d.notes) || '').match(/(?:יתרת\s*(?:תשלומים|חיובים)|נותרו|remaining\s*(?:payments|installments|charges))\D{0,20}(\d+)/i);
+      const m = String((d && d.notes) || '').match(/(?:יתרת\s*(?:תשלומים|חיובים|חיוב)|יתרה\s*(?:לחיוב|לתשלום)|נותרו|remaining\s*(?:payments|installments|charges))\D{0,20}(\d+)/i);
       return m ? m[1] : '';
     }
 
@@ -857,9 +857,9 @@
         /הוראת\s*קבע\s*-?\s*אשראי/i.test(notes) ||
         remainingCharges > 0 ||
         completedCharges > 0 ||
-        cleanNum(d.KevaTashlumim || tx.KevaTashlumim) > 0 ||
+        cleanNum(d.KevaTashlumim || tx.KevaTashlumim || tx['יתרת חיובים'] || tx['יתרת תשלומים']) > 0 ||
         cleanNum(d.KevaSuccess || tx.KevaSuccess) > 0 ||
-        cleanNum(tx.YitratTashloumim || tx.Yitra) > 0 ||
+        cleanNum(tx.YitratTashloumim || tx.Yitra || tx['יתרת חיובים'] || tx['יתרת תשלומים'] || tx['יתרת חיוב'] || tx['יתרה לחיוב'] || tx['יתרה לתשלום'] || tx['יתרה'] || tx.YitratChiyuvim || tx.YitratHiyuvim || tx.RemainingPayments || tx.RemainingCharges) > 0 ||
         cleanNum(tx.Bitzua) > 0;
 
       const reasons = [];
@@ -874,7 +874,7 @@
       if (noteCounts.total > 0) reasons.push('notes.total=' + noteCounts.total);
       if (noteCounts.remaining > 0) reasons.push('notes.remaining=' + noteCounts.remaining);
       if (noteCounts.completed > 0) reasons.push('notes.completed=' + noteCounts.completed);
-      if (cleanNum(tx.YitratTashloumim || tx.Yitra) > 0) reasons.push('raw.remaining>0');
+      if (cleanNum(tx.YitratTashloumim || tx.Yitra || tx['יתרת חיובים'] || tx['יתרת תשלומים'] || tx['יתרת חיוב'] || tx['יתרה לחיוב'] || tx['יתרה לתשלום'] || tx['יתרה'] || tx.YitratChiyuvim || tx.YitratHiyuvim || tx.RemainingPayments || tx.RemainingCharges) > 0) reasons.push('raw.remaining>0');
       if (cleanNum(tx.Bitzua) > 0) reasons.push('raw.completed>0');
 
       const sourceFields = {
@@ -893,7 +893,7 @@
         notesCompletedCharges: noteCounts.completed,
         rawPaymentType: tx.PaymentType || tx.TransactionType || '',
         rawTashloumim: tx.Tashloumim || tx.Tashlumim || tx.Payments || '',
-        rawRemaining: tx.YitratTashloumim || tx.Yitra || '',
+        rawRemaining: tx.YitratTashloumim || tx.Yitra || tx['יתרת חיובים'] || tx['יתרת תשלומים'] || tx['יתרת חיוב'] || tx['יתרה לחיוב'] || tx['יתרה לתשלום'] || tx['יתרה'] || tx.YitratChiyuvim || tx.YitratHiyuvim || tx.RemainingPayments || tx.RemainingCharges || '',
         rawCompleted: tx.Bitzua || ''
       };
 
