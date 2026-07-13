@@ -249,7 +249,13 @@ function mapHistoryToDashboardDonor(tx, index, mosadId) {
   const clientName = tx.ClientName || tx.Name || [tx.FirstName, tx.LastName].filter(Boolean).join(" ") || "תורם מנדרים פלוס";
   const frequency = detectDonationFrequency(tx, installments);
   const kevaTashlumim = getKevaTashlumim(tx);
-  const monthlyAmount = cleanNumber(tx.NextTashloum || tx.NextTashlum) || (installments > 1 ? Math.round((amount / installments) * 100) / 100 : amount);
+  // In GetHistoryJson, Amount is the amount of the actual charge row.
+  // If Tashloumim/Tashlumim > 1, this is a regular one-time donation split into installments.
+  // Example: Amount=15 and Tashloumim=12 means total deal is 180, monthly/current cash is 15.
+  const totalCommitment = frequency.kind === "one_time_installments" && installments > 1
+    ? Math.round(amount * installments * 100) / 100
+    : amount;
+  const monthlyAmount = amount;
 
   return {
     id: `nedarim-${mosadId}-tx-${key}`,
@@ -278,13 +284,18 @@ function mapHistoryToDashboardDonor(tx, index, mosadId) {
     donationFrequency: frequency.kind,
     donationFrequencyLabel: frequency.label,
     paymentInstallments: installments,
+    installments: installments,
+    tashlumim: installments,
+    Tashlumim: installments,
+    Tashloumim: installments,
     kevaTashlumim: kevaTashlumim,
     KevaTashlumim: kevaTashlumim,
     remainingPayments: kevaTashlumim,
     remainingInstallments: kevaTashlumim,
     monthlyAmount,
     installmentAmount: monthlyAmount,
-    totalCommitment: amount,
+    totalCommitment: totalCommitment,
+    totalDonationAmount: totalCommitment,
     currentMonthAmount: monthlyAmount,
     paymentDate: transactionTime || new Date().toISOString(),
     importedAt: new Date().toISOString(),
@@ -298,6 +309,7 @@ function mapHistoryToDashboardDonor(tx, index, mosadId) {
       tx.Confirmation ? `אישור: ${tx.Confirmation}` : "",
       tx.MasofName ? `עמדה: ${tx.MasofName}` : "",
       frequency.label ? `סוג תרומה: ${frequency.label}` : "",
+      frequency.kind === "one_time_installments" ? `${installments} תשלומים · סה"כ עסקה: ${totalCommitment}` : "",
       comments ? `הערות נדרים: ${comments}` : ""
     ].filter(Boolean).join(" · "),
     createdAt: transactionTime || new Date().toISOString(),
