@@ -627,15 +627,44 @@
     function startOfMonth(d) { return new Date(d.getFullYear(), d.getMonth(), 1); }
     function endOfMonth(d) { return new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999); }
 
+    function rawNedarimObj(d) {
+      if (!d) return {};
+      const raw = d.rawNedarim || d.nedarimRaw || d.raw || d.paymentTransaction || d.transaction || {};
+      if (raw && typeof raw === 'object') return raw;
+      if (typeof raw === 'string') { try { return JSON.parse(raw); } catch (e) { return {}; } }
+      return {};
+    }
+
+    function kevaRemainingText(d) {
+      const tx = rawNedarimObj(d);
+      const values = [
+        d && d.KevaTashlumim, d && d.kevaTashlumim, d && d.KevaTashloumim, d && d.kevaTashloumim,
+        d && d.remainingPayments, d && d.remainingInstallments, d && d.remainingCharges,
+        tx.KevaTashlumim, tx.kevaTashlumim, tx.KevaTashloumim, tx.kevaTashloumim,
+        tx.YitratTashloumim, tx.YitratTashlumim, tx.Yitra, tx.remainingPayments, tx.remainingInstallments, tx.remainingCharges
+      ];
+      for (let i = 0; i < values.length; i += 1) {
+        const v = values[i];
+        if (v !== undefined && v !== null && String(v).trim() !== '') return String(v).replace(/[^0-9]/g, '') || String(v);
+      }
+      const m = String((d && d.notes) || '').match(/(?:יתרת\s*(?:תשלומים|חיובים)|נותרו|remaining\s*(?:payments|installments|charges))\D{0,20}(\d+)/i);
+      return m ? m[1] : '';
+    }
+
     function isRecurring(d) {
+      const tx = rawNedarimObj(d);
       const txt = [
         d && d.donationFrequency,
         d && d.donationFrequencyLabel,
         d && d.paymentType,
         d && d.paymentTypeRaw,
-        d && d.notes
+        d && d.source,
+        d && d.notes,
+        d && d.id,
+        d && d.orderRef,
+        tx.PaymentType, tx.TransactionType, tx.Type, tx.KevaId, tx.KevaID, tx.HoraatKevaId, tx.HoraaId, tx.KevaTashlumim, tx.YitratTashloumim
       ].filter(Boolean).join(' ').toLowerCase();
-      return /recurring|הוראת\s*קבע|k[e]?va|hk|standing\s*order/.test(txt);
+      return /recurring|הוראת\s*קבע|קבע|keva|hk|standing\s*order|horaat/.test(txt) || kevaRemainingText(d) !== '';
     }
 
     function isNedarim(d) {
@@ -676,7 +705,7 @@
     }
 
     function donorInstallmentsSafe(d) {
-      const tx = (d && d.rawNedarim) || {};
+      const tx = rawNedarimObj(d);
       const n = cleanNum(
         d && (
           d.totalCharges ||
@@ -737,7 +766,7 @@
 
     function recurringCalcMeta(d) {
       d = d || {};
-      const tx = d.rawNedarim || {};
+      const tx = rawNedarimObj(d);
       const notes = String(d.notes || '');
       const donorId = String(d.id || '').toLowerCase();
       const orderRef = String(d.orderRef || '').toLowerCase();
@@ -789,6 +818,8 @@
         tx.Bitzua
       );
 
+      const explicitKevaRemaining = cleanNum(kevaRemainingText(d));
+      if (remainingCharges <= 0 && explicitKevaRemaining >= 0 && kevaRemainingText(d) !== '') remainingCharges = explicitKevaRemaining;
       if (remainingCharges <= 0 && noteCounts.remaining > 0) remainingCharges = noteCounts.remaining;
       if (completedCharges <= 0 && noteCounts.completed > 0) completedCharges = noteCounts.completed;
       if (totalCharges <= 0 && noteCounts.total > 0) totalCharges = noteCounts.total;
@@ -881,7 +912,7 @@
     }
 
     function nonRecurringTotalAmount(d) {
-      const tx = (d && d.rawNedarim) || {};
+      const tx = rawNedarimObj(d);
       const installments = donorInstallmentsSafe(d);
       const rawAmount = cleanNum(tx.Amount || tx.amount || (tx.Value && tx.Value.Amount) || (tx.value && tx.value.Amount));
       const amount = cleanNum(d && (d.amount || d.chargedAmount || d.currentMonthAmount));
@@ -1159,7 +1190,13 @@
       ].filter(Boolean).join(' ');
 
       if (/banquest/i.test(txt)) return state.lang === 'he' ? 'Banquest' : 'Banquest';
-      if (/nedarim|נדרים/i.test(txt) || (d && d.source === 'nedarim_external')) {
+      if (/nedarim|נדרים/i.test(txt) || (d && (d.source === 'nedarim_external' || d.source === 'nedarim_recurring'))) {
+        if (isRecurring(d)) {
+          const left = kevaRemainingText(d);
+          return state.lang === 'he'
+            ? 'נדרים פלוס · הוראת קבע' + (left !== '' ? ' · יתרת תשלומים: ' + left : '')
+            : 'Nedarim Plus · Recurring' + (left !== '' ? ' · Remaining payments: ' + left : '');
+        }
         return state.lang === 'he' ? 'נדרים פלוס' : 'Nedarim Plus';
       }
       return state.lang === 'he' ? 'האתר' : 'Website';
