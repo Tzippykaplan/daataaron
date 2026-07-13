@@ -727,9 +727,9 @@
       ) || cleanNum(tx.Bitzua);
       const countFromProgress = remainingCharges + completedCharges;
       let bestCount = 0;
-      if (remainingCharges > 0) bestCount = remainingCharges;
-      else if (totalCharges > 0) bestCount = totalCharges;
+      if (totalCharges > 0) bestCount = totalCharges;
       else if (countFromProgress > 0) bestCount = countFromProgress;
+      else if (remainingCharges > 0) bestCount = remainingCharges;
 
       if (chargeAmount > 0 && bestCount > 0) return chargeAmount * bestCount;
 
@@ -765,9 +765,9 @@
 
       let bestCount = 0;
       let bestSource = 'none';
-      if (remainingCharges > 0) { bestCount = remainingCharges; bestSource = 'remainingCharges'; }
-      else if (totalCharges > 0) { bestCount = totalCharges; bestSource = 'paymentInstallments/totalCharges'; }
+      if (totalCharges > 0) { bestCount = totalCharges; bestSource = 'paymentInstallments/totalCharges'; }
       else if (countFromProgress > 0) { bestCount = countFromProgress; bestSource = 'remaining+completed'; }
+      else if (remainingCharges > 0) { bestCount = remainingCharges; bestSource = 'remainingCharges'; }
 
       return {
         isRecurring: donationFrequency(d).key === 'recurring',

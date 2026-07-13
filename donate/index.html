@@ -3882,11 +3882,61 @@ html[dir="ltr"] .btn-primary.grow2 svg { transform: scaleX(-1); }
     return '$' + value.toLocaleString('en-US');
   }
 
+  function cleanCount(value) {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  function recurringDisplayAmount(donor) {
+    donor = donor || {};
+    const tx = donor.rawNedarim || {};
+    const isRecurring =
+      donor.source === 'nedarim_recurring' ||
+      donor.donationFrequency === 'recurring' ||
+      String(donor.paymentType || '').toUpperCase() === 'HK' ||
+      String(donor.paymentTypeRaw || '').toUpperCase() === 'HK' ||
+      cleanCount(donor.totalCharges) > 1 ||
+      cleanCount(donor.paymentInstallments) > 1 ||
+      cleanCount(donor.remainingCharges) > 0 ||
+      cleanCount(donor.completedCharges) > 0;
+
+    const chargeAmount = cleanCount(
+      donor.currentMonthAmount ||
+      donor.monthlyAmount ||
+      donor.installmentAmount ||
+      donor.amount ||
+      donor.chargedAmount ||
+      tx.SchumHiyuv ||
+      tx.MonthlyAmount ||
+      tx.NextTashloum ||
+      tx.Tashloum ||
+      tx.HoraahAmount ||
+      tx.Amount
+    );
+
+    const totalCharges = cleanCount(donor.totalCharges || donor.paymentInstallments || tx.Tashloumim || tx.Tashlumim || tx.Payments);
+    const remainingCharges = cleanCount(donor.remainingCharges || donor.remainingInstallments || donor.yitratTashloumim || tx.YitratTashloumim || tx.Yitra);
+    const completedCharges = cleanCount(donor.completedCharges || donor.completedInstallments || donor.bitzua || tx.Bitzua);
+    const countFromProgress = remainingCharges + completedCharges;
+
+    let bestCount = 0;
+    if (totalCharges > 0) bestCount = totalCharges;
+    else if (countFromProgress > 0) bestCount = countFromProgress;
+    else if (remainingCharges > 0) bestCount = remainingCharges;
+
+    if (isRecurring && chargeAmount > 0 && bestCount > 0) return chargeAmount * bestCount;
+
+    const explicitTotal = cleanCount(donor.totalCommitment || donor.pledgeAmount || donor.totalAmount);
+    if (isRecurring && explicitTotal > 0) return explicitTotal;
+
+    return cleanCount(donor.amount || donor.chargedAmount || donor.paymentAmount || donor.totalAmount);
+  }
+
   function buildPayload(donor, options) {
     const lang = getLanguage();
     const donorName = donor?.fullName || [donor?.firstName, donor?.lastName].filter(Boolean).join(' ') || (lang === 'he' ? 'תורם' : 'Donor');
     const fundraiserName = String(donor?.donorName || donor?.fundraiserName || '').trim();
-    const amount = formatAmount(donor?.amount || donor?.chargedAmount || donor?.paymentAmount || donor?.totalAmount, donor?.currency || (lang === 'he' ? 'ILS' : 'USD'));
+    const amount = formatAmount(recurringDisplayAmount(donor), donor?.currency || (lang === 'he' ? 'ILS' : 'USD'));
     const method = options?.paymentMethod || donor?.paymentMethod || (window.state && window.state.payment === 'card' ? 'card' : 'bank');
     const methodText = lang === 'he'
       ? { card: 'כרטיס אשראי', bank: 'העברה בנקאית' }[method] || 'תשלום'
