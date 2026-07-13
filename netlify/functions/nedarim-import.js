@@ -191,12 +191,22 @@ function kevaKey(tx, index, mosadId) {
 }
 
 function detectDonationFrequency(tx, installments) {
-  const raw = String(tx.PaymentType || tx.paymentType || tx.TransactionType || tx.transactionType || tx.Type || tx.type || tx.HK || tx.HoraatKeva || tx.Keva || "").trim();
-  const joined = [raw, tx.Groupe, tx.Group, tx.Category, tx.Comments, tx.Comment, tx.Notes, tx.MasofName, tx.Avour]
-    .filter(Boolean).join(" ").toLowerCase();
+  const raw = String(
+    tx.PaymentType || tx.paymentType || tx.TransactionType || tx.transactionType ||
+    tx.Type || tx.type || tx.HK || tx.HoraatKeva || tx.Keva || ""
+  ).trim();
+
+  const joined = [
+    raw, tx.Groupe, tx.Group, tx.Category, tx.Comments, tx.Comment,
+    tx.Notes, tx.MasofName, tx.Avour
+  ].filter(Boolean).join(" ").toLowerCase();
+
   if (/(^|[^a-z])hk([^a-z]|$)|הוראת\s*קבע|קבע|horaat|keva|standing\s*order|recurring/.test(joined)) {
     return { kind: "recurring", label: "הוראת קבע", raw: raw || "HK" };
   }
+
+  // A regular card transaction remains a one-time donation even when Nedarim divided it
+  // into several installments. The dashboard intentionally shows only the final total.
   return { kind: "one_time", label: "חד פעמית", raw: raw || "Ragil" };
 }
 
@@ -240,7 +250,7 @@ function looksLikeActualKevaRow(value) {
 }
 
 function collectRows(value, out = [], depth = 0, mode = "transaction") {
-  if (depth > 9 || value == null) return out;
+  if (depth > 12 || value == null) return out;
   value = parseMaybeJsonString(value);
 
   if (Array.isArray(value)) {
@@ -250,36 +260,76 @@ function collectRows(value, out = [], depth = 0, mode = "transaction") {
 
   if (typeof value !== "object") return out;
 
-  const looksLikeTransaction = TX_KEYS.some((k) => Object.prototype.hasOwnProperty.call(value, k));
+  const preferred = [
+    "Data", "data", "History", "history", "Rows", "rows", "Result", "result",
+    "List", "list", "Transactions", "transactions", "Keva", "keva",
+    "Horaot", "horaot", "JsonData", "jsonData", "Table", "table",
+    "Items", "items", "Records", "records"
+  ];
+
+  const looksLikeTransaction = TX_KEYS.some((k) =>
+    Object.prototype.hasOwnProperty.call(value, k)
+  );
   const looksLikeKeva = looksLikeActualKevaRow(value);
+  const hasExplicitKevaId = KEVA_ID_KEYS.some((k) =>
+    Object.prototype.hasOwnProperty.call(value, k) && String(value[k] ?? "").trim() !== ""
+  );
+  const hasNestedContainer = preferred.some((k) => {
+    if (!Object.prototype.hasOwnProperty.call(value, k)) return false;
+    const nested = parseMaybeJsonString(value[k]);
+    return Array.isArray(nested) || (nested && typeof nested === "object");
+  });
 
   if (mode === "transaction" && looksLikeTransaction) {
     out.push(value);
-    return out;
-  }
-  if (mode === "keva" && looksLikeKeva) {
-    out.push(value);
-    return out;
   }
 
-  const preferred = ["Data", "data", "History", "history", "Rows", "rows", "Result", "result", "List", "list", "Transactions", "transactions", "Keva", "keva", "Horaot", "horaot", "JsonData", "jsonData", "Table", "table"];
-  for (const k of preferred) if (k in value) collectRows(value[k], out, depth + 1, mode);
-  for (const k of Object.keys(value)) if (!preferred.includes(k)) collectRows(value[k], out, depth + 1, mode);
+  if (mode === "keva" && looksLikeKeva) {
+    // Nedarim sometimes wraps the real standing-order rows inside an object that also
+    // contains summary fields. Do not treat that wrapper as a donor unless it has an
+    // explicit standing-order ID. Most importantly, continue traversing nested values.
+    if (!hasNestedContainer || hasExplicitKevaId) out.push(value);
+  }
+
+  for (const k of preferred) {
+    if (Object.prototype.hasOwnProperty.call(value, k)) {
+      collectRows(value[k], out, depth + 1, mode);
+    }
+  }
+  for (const k of Object.keys(value)) {
+    if (!preferred.includes(k)) collectRows(value[k], out, depth + 1, mode);
+  }
+
   return out;
 }
 
 function parseResponse(raw, mode = "transaction") {
   const clean = String(raw || "").replace(/^\uFEFF/, "").trim();
   if (!clean) return { parsed: null, rows: [] };
+
   let parsed;
-  try { parsed = JSON.parse(clean); }
-  catch (error) {
+  try {
+    parsed = JSON.parse(clean);
+  } catch (error) {
     const err = new Error("Nedarim response was not valid JSON. Check MosadId/API password/API endpoint.");
     err.statusCode = 502;
     err.raw = clean.slice(0, 1500);
     throw err;
   }
-  return { parsed, rows: collectRows(parsed, [], 0, mode) };
+
+  const collected = collectRows(parsed, [], 0, mode);
+  const seen = new Set();
+  const rows = collected.filter((row, index) => {
+    if (!row || typeof row !== "object") return false;
+    const key = mode === "keva"
+      ? String(row.KevaId || row.KevaID || row.HoraatKevaId || row.HoraaId || row.StandingOrderId || row.RecurringId || row.Id || row.id || `${row.ClientName || row.Name || ""}|${row.Phone || ""}|${row.Amount || row.SchumHiyuv || ""}|${index}`)
+      : String(row.TransactionId || row.transactionId || row.Id || row.id || row.Shovar || row.KabalaId || `${row.ClientName || row.Name || ""}|${row.Amount || ""}|${row.TransactionTime || ""}|${index}`);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  return { parsed, rows };
 }
 
 function isInactiveKeva(tx) {
@@ -307,9 +357,9 @@ function mapHistoryToDashboardDonor(tx, index, mosadId) {
   // Do NOT multiply Amount × Tashloumim for one-time installments.
   const totalCommitment = amount;
   const monthlyAmount = amount;
-  const installmentAmount = frequency.kind === "one_time_installments" && installments > 1
-    ? Math.round((amount / installments) * 100) / 100
-    : amount;
+  // For a regular transaction, Amount is already the final total amount.
+  // Installment details are intentionally not displayed or used for categorization.
+  const installmentAmount = amount;
 
   return {
     id: `nedarim-${mosadId}-tx-${key}`,
