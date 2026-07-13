@@ -4280,5 +4280,93 @@ function json(obj) {
 })();
 </script>
 
+
+
+<script>
+/* ===== Final patch: read Keva remaining payments from Hebrew Nedarim fields ===== */
+(function(){
+  function parseRaw(d){
+    const raw = d && (d.rawNedarim || d.nedarimRaw || d.raw || d.paymentTransaction || d.transaction || {});
+    if(raw && typeof raw === 'object') return raw;
+    if(typeof raw === 'string'){ try { return JSON.parse(raw); } catch(e){} }
+    return {};
+  }
+  function numeric(v){
+    if(v === undefined || v === null) return '';
+    const s = String(v).trim();
+    if(!s) return '';
+    const digits = s.replace(/[^0-9]/g, '');
+    return digits || '';
+  }
+  function kevaRemaining(d){
+    d = d || {};
+    const r = parseRaw(d);
+    const candidates = [
+      d.KevaTashlumim, d.kevaTashlumim, d.KevaTashloumim, d.kevaTashloumim,
+      d.remainingPayments, d.remainingInstallments, d.remainingCharges, d.kevaRemainingPayments,
+      r.KevaTashlumim, r.kevaTashlumim, r.KevaTashloumim, r.kevaTashloumim,
+      r.YitratTashloumim, r.YitratTashlumim, r.Yitra,
+      r['יתרת חיובים'], r['יתרת תשלומים'], r['יתרת חיוב'], r['יתרה לחיוב'], r['יתרה לתשלום'], r['יתרה'],
+      r.YitratChiyuvim, r.YitratHiyuvim, r.YitratHiuvim,
+      r.RemainingPayments, r.RemainingInstallments, r.RemainingCharges,
+      r.remainingPayments, r.remainingInstallments, r.remainingCharges, r.TashlumimLeft, r.tashlumimLeft
+    ];
+    for(const v of candidates){ const n = numeric(v); if(n) return n; }
+    const notes = String(d.notes || '');
+    const m = notes.match(/(?:יתרת\s*(?:תשלומים|חיובים|חיוב)|יתרה\s*(?:לחיוב|לתשלום)|נותרו|remaining\s*(?:payments|installments|charges))\D{0,20}(\d+)/i);
+    return m ? m[1] : '';
+  }
+  function isKeva(d){
+    d = d || {};
+    const r = parseRaw(d);
+    const txt = [d.paymentType,d.paymentTypeRaw,d.donationFrequency,d.donationFrequencyLabel,d.source,d.notes,d.id,d.orderRef,d.KevaId,d.kevaId,d.HoraatKevaId,r.PaymentType,r.TransactionType,r.Type,r.KevaId,r.KevaID,r.HoraatKevaId,r.HoraaId].filter(Boolean).join(' ').toLowerCase();
+    return /(^|[^a-z])hk([^a-z]|$)|keva|recurring|standing|horaat|הוראת\s*קבע|קבע/.test(txt) || !!kevaRemaining(d);
+  }
+  function normalizeKevaRemainingFields(){
+    const list = Array.isArray(window.donors) ? window.donors : (typeof donors !== 'undefined' ? donors : []);
+    let changed = false;
+    (list || []).forEach(function(d){
+      if(!d || !isKeva(d)) return;
+      const left = kevaRemaining(d);
+      if(left){
+        ['KevaTashlumim','kevaTashlumim','remainingPayments','remainingInstallments','remainingCharges'].forEach(function(k){
+          if(String(d[k] || '').replace(/[^0-9]/g,'') !== left){ d[k] = left; changed = true; }
+        });
+        if(!String(d.notes || '').match(/יתרת\s*(?:תשלומים|חיובים)|remaining/i)){
+          d.notes = String(d.notes || '').trim();
+          d.notes += (d.notes ? ' · ' : '') + 'יתרת תשלומים: ' + left;
+          changed = true;
+        }
+      }
+      if(d.donationFrequency !== 'recurring'){ d.donationFrequency = 'recurring'; changed = true; }
+      if(d.donationFrequencyLabel !== 'הוראת קבע'){ d.donationFrequencyLabel = 'הוראת קבע'; changed = true; }
+      if(d.paymentType !== 'HK'){ d.paymentType = 'HK'; changed = true; }
+      if(d.paymentTypeRaw !== 'HK'){ d.paymentTypeRaw = 'HK'; changed = true; }
+    });
+    if(changed && typeof saveData === 'function') { try { saveData(); } catch(e){} }
+  }
+  window.ndaNormalizeKevaRemainingFields = normalizeKevaRemainingFields;
+  const oldRender = window.renderDashboard;
+  if(typeof oldRender === 'function' && !window.__ndaKevaHebrewRemainingRenderPatched){
+    window.renderDashboard = function(){ normalizeKevaRemainingFields(); return oldRender.apply(this, arguments); };
+    window.__ndaKevaHebrewRemainingRenderPatched = true;
+  }
+  const oldImport = window.importNedarimExternalDonations;
+  if(typeof oldImport === 'function' && !window.__ndaKevaHebrewRemainingImportPatched){
+    window.importNedarimExternalDonations = async function(){
+      const res = await oldImport.apply(this, arguments);
+      normalizeKevaRemainingFields();
+      if(typeof saveData === 'function') try { saveData(); } catch(e){}
+      if(typeof renderDashboard === 'function') try { renderDashboard(); } catch(e){}
+      return res;
+    };
+    window.__ndaKevaHebrewRemainingImportPatched = true;
+  }
+  document.addEventListener('DOMContentLoaded', function(){ normalizeKevaRemainingFields(); });
+  window.addEventListener('load', function(){ normalizeKevaRemainingFields(); if(typeof renderDashboard === 'function') try { renderDashboard(); } catch(e){} });
+  if(document.readyState !== 'loading') normalizeKevaRemainingFields();
+})();
+</script>
+
 </body>
 </html>
