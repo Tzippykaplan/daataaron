@@ -231,6 +231,8 @@ function parseResponse(raw, mode = "transaction") {
 }
 
 function isInactiveKeva(tx) {
+  const kevaStatus = Number(String(tx.KevaStatus || tx.kevaStatus || "").replace(/[^0-9]/g, "")) || 0;
+  if (kevaStatus === 2 || kevaStatus === 3) return true;
   const raw = [tx.Status, tx.status, tx.Active, tx.IsActive, tx.Cancelled, tx.Canceled, tx.Bitual, tx.Notes, tx.Comments]
     .filter((v) => v != null).join(" ").toLowerCase();
   return /מבוטל|בוטל|cancel|inactive|לא\s*פעיל|הופסק|false/.test(raw);
@@ -313,35 +315,39 @@ function mapHistoryToDashboardDonor(tx, index, mosadId) {
 
 function mapKevaToDashboardDonor(tx, index, mosadId) {
   const key = kevaKey(tx, index, mosadId);
-  const amount = getAmount(tx);
-  const currencyCode = String(tx.Currency || tx.currency || "1").trim();
+  const amount = cleanNumber(getFieldLoose(tx, ["KevaAmount", "Amount", "SchumHiyuv", "MonthlyAmount", "NextTashloum", "Tashloum", "HoraahAmount"])) || getAmount(tx);
+  const currencyCode = String(getFieldLoose(tx, ["KevaCurrency", "Currency", "currency"]) || "1").trim();
   const currency = currencyCode === "2" || /dollar|usd|\$|דולר/i.test(currencyCode) ? "USD" : "ILS";
   const installmentsRaw = parseCountValue(getFieldLoose(tx, [
-    "Tashloumim", "Tashlumim", "Payments", "Installments", "NumPayments", "PaymentsCount", "MesTashlumim", "TashloumimCount"
+    "KevaTashlumim", "Tashloumim", "Tashlumim", "Payments", "Installments", "NumPayments", "PaymentsCount", "MesTashlumim", "TashloumimCount"
   ]), "max");
   const remainingCharges = parseCountValue(getFieldLoose(tx, [
-    "YitratTashloumim", "Yitra", "RemainingCharges", "RemainingInstallments", "ChargesLeft", "LeftCharges", "YitratHiuvim", "YitraHiuvim"
+    "KevaTashlumim", "YitratTashloumim", "Yitra", "RemainingCharges", "RemainingInstallments", "ChargesLeft", "LeftCharges", "YitratHiuvim", "YitraHiuvim"
   ]), "first");
   const completedCharges = parseCountValue(getFieldLoose(tx, [
-    "Bitzua", "CompletedCharges", "CompletedInstallments", "ChargesDone", "PaidCharges", "HiyuvimBitzua"
+    "KevaSuccess", "HistoryCount", "Bitzua", "CompletedCharges", "CompletedInstallments", "ChargesDone", "PaidCharges", "HiyuvimBitzua"
   ]), "first");
   const inferredTotalCharges = remainingCharges + completedCharges;
-  const totalCharges = Math.max(1, installmentsRaw, inferredTotalCharges);
-  const category = tx.Groupe || tx.Group || tx.Category || "נציבי דעת אהרן";
-  const comments = tx.Comments || tx.Comment || tx.Notes || tx.Avour || "";
+  const totalCharges = Math.max(1, remainingCharges, installmentsRaw, inferredTotalCharges);
+  const category = tx.KevaGroupe || tx.Groupe || tx.Group || tx.Category || "נציבי דעת אהרן";
+  const comments = tx.KevaAvour || tx.Comments || tx.Comment || tx.Notes || tx.Avour || "";
   const donorName = extractFundraiserName(comments);
-  const clientName = tx.ClientName || tx.Name || [tx.FirstName, tx.LastName].filter(Boolean).join(" ") || "תורם הוראת קבע מנדרים פלוס";
-  const startDate = parseDate(tx.StartFrom || tx.StartDate || tx.CreatedAt || tx.Date || tx.OpenDate || tx.TransactionTime) || new Date().toISOString();
-  const nextChargeDate = parseDate(tx.NextDate || tx.NextCharge || tx.ChargeDate || tx.HiyuvHaba || tx.HiyuvDate || tx.DateHiyuv, { allowFuture: true });
-  const dayOfCharge = String(tx.Day || tx.DayC || tx.ChargeDay || tx.HiyuvDay || "").replace(/[^0-9]/g, "");
+  const clientName = tx.KevaName || tx.ClientName || tx.Name || [tx.FirstName, tx.LastName].filter(Boolean).join(" ") || "תורם הוראת קבע מנדרים פלוס";
+  const startDate = parseDate(tx.CreatedDate || tx.StartFrom || tx.StartDate || tx.CreatedAt || tx.Date || tx.OpenDate || tx.TransactionTime) || new Date().toISOString();
+  const nextChargeDate = parseDate(tx.KevaNextDate || tx.NextDate || tx.NextCharge || tx.ChargeDate || tx.HiyuvHaba || tx.HiyuvDate || tx.DateHiyuv, { allowFuture: true });
+  const dayOfCharge = nextChargeDate ? String(new Date(nextChargeDate).getDate()) : String(tx.Day || tx.DayC || tx.ChargeDay || tx.HiyuvDay || "").replace(/[^0-9]/g, "");
+  const statusCode = Number(String(tx.KevaStatus || "").replace(/[^0-9]/g, "")) || 0;
+  const frequencyCode = Number(String(tx.KevaFrequency || "").replace(/[^0-9]/g, "")) || 0;
+  const frequencyLabel = frequencyCode === 2 ? "שבועי" : frequencyCode === 3 ? "יזכור" : "חודשי";
+  const totalHistoryAmount = cleanNumber(tx.TotalHistoryAmount || 0);
 
   return {
     id: `nedarim-${mosadId}-keva-${key}`,
     fullName: clientName,
     donorName,
-    phone: tx.Phone || "",
-    email: tx.Mail || tx.Email || "",
-    address: tx.Adresse || tx.Address || tx.Street || "",
+    phone: tx.KevaPhone || tx.Phone || "",
+    email: tx.KevaMail || tx.Mail || tx.Email || "",
+    address: [tx.KevaAdresse, tx.KevaCity].filter(Boolean).join(" ") || tx.Adresse || tx.Address || tx.Street || "",
     category,
     isExternalDonation: true,
     importedFromNedarim: true,
@@ -379,12 +385,15 @@ function mapKevaToDashboardDonor(tx, index, mosadId) {
     notes: [
       "ייבוא חיצוני מנדרים פלוס - הוראת קבע",
       `מזהה הוראת קבע: ${key}`,
+      statusCode ? `סטטוס הוראת קבע: ${statusCode}` : "",
+      frequencyCode ? `תדירות גביה: ${frequencyLabel} (${frequencyCode})` : "",
       totalCharges ? `סה״כ חיובים: ${totalCharges}` : "",
       remainingCharges ? `יתרת חיובים: ${remainingCharges}` : "",
       completedCharges ? `חיובים שבוצעו: ${completedCharges}` : "",
+      totalHistoryAmount ? `סכום שחוייב עד כה: ${totalHistoryAmount}` : "",
       dayOfCharge ? `יום חיוב: ${dayOfCharge}` : "",
       nextChargeDate ? `חיוב הבא: ${nextChargeDate.slice(0, 10)}` : "",
-      tx.LastNum ? `כרטיס: *${tx.LastNum}` : "",
+      (tx.KevaLastNum || tx.LastNum) ? `כרטיס: *${tx.KevaLastNum || tx.LastNum}` : "",
       donorName ? `שם המתרים: ${donorName}` : "",
       comments ? `הערות נדרים: ${comments}` : ""
     ].filter(Boolean).join(" · "),

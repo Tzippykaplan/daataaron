@@ -711,14 +711,25 @@
       const notes = String((d && d.notes) || '');
       const total = extractCountFromText(notes, [
         /סה["״']?כ\s*חיובים\s*[:\-]?\s*(\d+)/i,
+        /סה["״']?כ\s*תשלומים\s*[:\-]?\s*(\d+)/i,
+        /total\s*installments\s*[:\-]?\s*(\d+)/i,
         /total\s*charges\s*[:\-]?\s*(\d+)/i
       ]);
       const remaining = extractCountFromText(notes, [
         /יתרת\s*חיובים\s*[:\-]?\s*(\d+)/i,
+        /יתרת\s*תשלומים\s*[:\-]?\s*(\d+)/i,
+        /יתרה\s*לחיוב\s*[:\-]?\s*(\d+)/i,
+        /יתרה\s*לתשלום\s*[:\-]?\s*(\d+)/i,
+        /יתרת\s*חיובים[^0-9]{0,12}(\d+)/i,
+        /נותרו\s*[:\-]?\s*(\d+)\s*חיובים/i,
+        /remaining\s*installments\s*[:\-]?\s*(\d+)/i,
         /remaining\s*charges\s*[:\-]?\s*(\d+)/i
       ]);
       const completed = extractCountFromText(notes, [
         /חיובים\s*שבוצעו\s*[:\-]?\s*(\d+)/i,
+        /תשלומים\s*שבוצעו\s*[:\-]?\s*(\d+)/i,
+        /בוצעו\s*[:\-]?\s*(\d+)\s*חיובים/i,
+        /history\s*count\s*[:\-]?\s*(\d+)/i,
         /completed\s*charges\s*[:\-]?\s*(\d+)/i
       ]);
       return { total: total, remaining: remaining, completed: completed };
@@ -731,7 +742,15 @@
       const donorId = String(d.id || '').toLowerCase();
       const orderRef = String(d.orderRef || '').toLowerCase();
 
-      const paymentType = String(d.paymentType || d.paymentTypeRaw || tx.PaymentType || tx.TransactionType || '').toUpperCase();
+      const paymentType = String(
+        d.paymentType ||
+        d.paymentTypeRaw ||
+        d.KevaStatus ||
+        tx.PaymentType ||
+        tx.TransactionType ||
+        tx.KevaStatus ||
+        ''
+      ).toUpperCase();
       const source = String(d.source || '').toLowerCase();
       const explicitRecurring = String(d.donationFrequency || '').toLowerCase() === 'recurring';
       const isHK = paymentType === 'HK' || /HORAAT|KEVA/.test(paymentType);
@@ -739,13 +758,35 @@
       const notesLookRecurring = /הוראת\s*קבע|horaat\s*keva|standing\s*order|recurring/i.test(notes);
       const noteCounts = notesRecurringCounts(d);
 
-      const structuredTotalCharges = donorInstallmentsSafe(d);
+      const structuredTotalCharges = cleanNum(
+        d.totalCharges ||
+        d.paymentInstallments ||
+        d.KevaTashlumim ||
+        d.tashlumim ||
+        tx.KevaTashlumim ||
+        tx.Tashloumim ||
+        tx.Tashlumim ||
+        tx.Payments
+      ) || donorInstallmentsSafe(d);
       let totalCharges = structuredTotalCharges;
       let remainingCharges = cleanNum(
-        d.remainingCharges || d.remainingInstallments || d.yitratTashloumim || tx.YitratTashloumim || tx.Yitra
+        d.remainingCharges ||
+        d.remainingInstallments ||
+        d.KevaTashlumim ||
+        d.yitratTashloumim ||
+        tx.KevaTashlumim ||
+        tx.YitratTashloumim ||
+        tx.Yitra
       );
       let completedCharges = cleanNum(
-        d.completedCharges || d.completedInstallments || d.bitzua || tx.Bitzua
+        d.completedCharges ||
+        d.completedInstallments ||
+        d.KevaSuccess ||
+        d.HistoryCount ||
+        d.bitzua ||
+        tx.KevaSuccess ||
+        tx.HistoryCount ||
+        tx.Bitzua
       );
 
       if (remainingCharges <= 0 && noteCounts.remaining > 0) remainingCharges = noteCounts.remaining;
@@ -756,16 +797,18 @@
 
       let bestCount = 0;
       let bestSource = 'none';
-      if (totalCharges > 0) { bestCount = totalCharges; bestSource = 'paymentInstallments/totalCharges'; }
+      if (remainingCharges > 0) { bestCount = remainingCharges; bestSource = 'remainingCharges'; }
+      else if (totalCharges > 0) { bestCount = totalCharges; bestSource = 'paymentInstallments/totalCharges'; }
       else if (countFromProgress > 0) { bestCount = countFromProgress; bestSource = 'remaining+completed'; }
-      else if (remainingCharges > 0) { bestCount = remainingCharges; bestSource = 'remainingCharges'; }
 
       const chargeAmount = cleanNum(
+        d.KevaAmount ||
         d.currentMonthAmount ||
         d.monthlyAmount ||
         d.installmentAmount ||
         d.chargedAmount ||
         d.amount ||
+        tx.KevaAmount ||
         tx.SchumHiyuv ||
         tx.MonthlyAmount ||
         tx.NextTashloum ||
@@ -780,8 +823,11 @@
         isHK ||
         isKevaId ||
         notesLookRecurring ||
+        /הוראת\s*קבע\s*-?\s*אשראי/i.test(notes) ||
         remainingCharges > 0 ||
         completedCharges > 0 ||
+        cleanNum(d.KevaTashlumim || tx.KevaTashlumim) > 0 ||
+        cleanNum(d.KevaSuccess || tx.KevaSuccess) > 0 ||
         cleanNum(tx.YitratTashloumim || tx.Yitra) > 0 ||
         cleanNum(tx.Bitzua) > 0;
 
@@ -939,6 +985,29 @@
       const recurring = monthly.filter(function(r){ return donationFrequency(r.raw).key === 'recurring'; });
       const oneTime = monthly.filter(function(r){ return donationFrequency(r.raw).key !== 'recurring'; });
       const nedarim = allRows.filter(function(r){ return isPaid(r.raw) && isNedarim(r.raw); });
+
+      if (DEBUG_RECURRING) {
+        const recurringRows = recurring.map(function(r){
+          const info = recurringDebugInfo(r.raw);
+          return {
+            id: r.raw && r.raw.id,
+            donor: r.raw && r.raw.fullName,
+            amount: cleanNum(r.raw && r.raw.amount),
+            remainingCharges: info.remainingCharges,
+            totalCharges: info.totalCharges,
+            completedCharges: info.completedCharges,
+            picked: info.bestCount,
+            source: info.bestSource,
+            shown: info.displayedAmount,
+            reasons: (info.reasons || []).join(',')
+          };
+        });
+        try {
+          console.groupCollapsed('[Recurring Debug] Summary rows=' + recurringRows.length);
+          console.table(recurringRows);
+          console.groupEnd();
+        } catch (e) {}
+      }
 
       const sumCurrency = function(rows) {
         return rows.reduce(function(acc, r){
@@ -1133,6 +1202,28 @@
     function render() {
       const rows = sortedRows(filteredRows());
       const p = pageSlice(rows);
+
+      if (DEBUG_RECURRING) {
+        const sample = rows.find(function(r){ return String(r.raw && r.raw.id || '').indexOf('-keva-') >= 0; }) || rows[0];
+        if (sample && sample.raw) {
+          const info = recurringDebugInfo(sample.raw);
+          try {
+            console.log('[Recurring Debug] sample', {
+              id: sample.raw.id,
+              donor: sample.raw.fullName,
+              rawAmount: sample.raw.amount,
+              remainingCharges: info.remainingCharges,
+              totalCharges: info.totalCharges,
+              completedCharges: info.completedCharges,
+              picked: info.bestCount,
+              pickedSource: info.bestSource,
+              shown: info.displayedAmount,
+              reasons: info.reasons,
+              sourceFields: info.sourceFields
+            });
+          } catch (e) {}
+        }
+      }
 
       const tbody = q('tbody');
       const empty = q('emptyState');
