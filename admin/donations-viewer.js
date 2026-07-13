@@ -171,9 +171,11 @@
 
   function rawNedarimSafe(d) {
     if (!d) return {};
-    if (d.rawNedarim && typeof d.rawNedarim === 'object') return d.rawNedarim;
-    if (d.nedarimRaw && typeof d.nedarimRaw === 'object') return d.nedarimRaw;
-    if (d.raw && typeof d.raw === 'object') return d.raw;
+    const raw = d.rawNedarim || d.nedarimRaw || d.raw || d.paymentTransaction || d.transaction || {};
+    if (raw && typeof raw === 'object') return raw;
+    if (typeof raw === 'string') {
+      try { return JSON.parse(raw); } catch (e) { return {}; }
+    }
     return {};
   }
 
@@ -200,8 +202,8 @@
     const raw = rawNedarimSafe(d);
     const joined = [
       paymentTypeRawSafe(d),
-      firstNonEmpty(d, ['recurringType', 'paymentLabel', 'paymentTypeLabel', 'donationTypeLabel']),
-      firstNonEmpty(raw, ['PaymentTypeName', 'PaymentTypeText', 'TransactionTypeName', 'TransactionTypeText'])
+      firstNonEmpty(d, ['recurringType', 'paymentLabel', 'paymentTypeLabel', 'donationTypeLabel', 'donationFrequency', 'donationFrequencyLabel', 'source', 'notes', 'id', 'orderRef', 'KevaId', 'kevaId']),
+      firstNonEmpty(raw, ['PaymentTypeName', 'PaymentTypeText', 'TransactionTypeName', 'TransactionTypeText', 'PaymentType', 'TransactionType', 'Type', 'KevaId', 'KevaID', 'HoraatKevaId', 'HoraaId', 'KevaTashlumim', 'YitratTashloumim'])
     ].join(' ').toLowerCase();
 
     return Boolean(
@@ -211,8 +213,10 @@
       joined.includes('keva') ||
       joined.includes('recurring') ||
       joined.includes('standing') ||
+      joined.includes('horaat') ||
       joined.includes('הוראת') ||
-      joined.includes('קבע');
+      joined.includes('קבע') ||
+      kevaTashlumimValue(d) !== '';
   }
 
   function kevaTashlumimValue(d) {
@@ -220,6 +224,8 @@
     const value = firstNonEmpty(d, [
       'KevaTashlumim',
       'kevaTashlumim',
+      'KevaTashloumim',
+      'kevaTashloumim',
       'remainingPayments',
       'remainingInstallments',
       'remainingCharges',
@@ -227,14 +233,26 @@
     ]) || firstNonEmpty(raw, [
       'KevaTashlumim',
       'kevaTashlumim',
+      'KevaTashloumim',
+      'kevaTashloumim',
+      'YitratTashloumim',
+      'YitratTashlumim',
+      'Yitra',
       'RemainingPayments',
       'remainingPayments',
+      'remainingInstallments',
+      'remainingCharges',
       'TashlumimLeft',
       'tashlumimLeft'
     ]);
 
-    if (value === undefined || value === null || String(value).trim() === '') return '';
-    return String(value).trim();
+    if (value !== undefined && value !== null && String(value).trim() !== '') {
+      const str = String(value).trim();
+      return str.replace(/[^0-9]/g, '') || str;
+    }
+    const notes = String((d && d.notes) || '');
+    const m = notes.match(/(?:יתרת\s*(?:תשלומים|חיובים)|נותרו|remaining\s*(?:payments|installments|charges))\D{0,20}(\d+)/i);
+    return m ? m[1] : '';
   }
 
   function donationTypeLabelSafe(d) {
@@ -310,7 +328,10 @@
           r.kevaTashlumimText,
           r.paymentDetailsText,
           r.receipt,
-          r.notes
+          r.notes,
+          r.paymentTypeText,
+          r.kevaTashlumimText,
+          r.paymentDetailsText
         ].join(' ').toLowerCase();
         if (!corpus.includes(g)) return false;
       }
