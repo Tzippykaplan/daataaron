@@ -62,6 +62,12 @@ function extractFundraiserName(comment) {
   return parts[parts.length - 1].trim();
 }
 
+function parseCount(value) {
+  if (value == null) return 0;
+  const n = Number(String(value).replace(/[^0-9]/g, ""));
+  return Number.isFinite(n) ? n : 0;
+}
+
 function buildAlertMessage(payload) {
   const amountText = payload.currency === "ILS"
     ? `₪${payload.amount.toLocaleString("he-IL")}`
@@ -97,6 +103,17 @@ function normalizeCallbackPayload(data, mosadId) {
   const currencyCode = findValueDeep(data, ["Currency", "currency"]);
   const currency = currencyCode === "2" || /usd|dollar|\$/i.test(currencyCode) ? "USD" : "ILS";
 
+  const paymentTypeRaw = findValueDeep(data, ["PaymentType", "paymentType", "TransactionType", "type", "HK", "HoraatKeva", "Keva"]);
+  const paymentTypeJoined = [paymentTypeRaw, comments].filter(Boolean).join(" ").toLowerCase();
+  const isRecurring = /(^|[^a-z])hk([^a-z]|$)|הוראת\s*קבע|קבע|horaat|keva|standing\s*order|recurring/.test(paymentTypeJoined);
+
+  const explicitInstallments = parseCount(findValueDeep(data, ["Tashloumim", "Tashlumim", "Payments", "paymentInstallments", "Installments"]));
+  const remainingCharges = parseCount(findValueDeep(data, ["YitratTashloumim", "Yitra", "remainingCharges", "RemainingCharges", "remainingInstallments"]));
+  const completedCharges = parseCount(findValueDeep(data, ["Bitzua", "completedCharges", "completedInstallments"]));
+  const inferredTotalCharges = remainingCharges + completedCharges;
+  const totalCharges = Math.max(explicitInstallments, inferredTotalCharges, isRecurring ? 1 : 0);
+  const totalCommitment = isRecurring && totalCharges > 0 ? amount * totalCharges : amount;
+
   return {
     id: orderRef ? `nedarim-callback-${mosadId}-${orderRef}` : `nedarim-callback-${mosadId}-${Date.now()}`,
     fullName: clip(fullName || "תורם מנדרים פלוס", 120),
@@ -117,9 +134,21 @@ function normalizeCallbackPayload(data, mosadId) {
     paymentStatus: "approved",
     paymentApproved: true,
     chargedAmount: amount,
+    paymentType: isRecurring ? "HK" : (paymentTypeRaw || "Ragil"),
+    paymentTypeRaw: paymentTypeRaw || (isRecurring ? "HK" : "Ragil"),
+    donationFrequency: isRecurring ? "recurring" : "one_time",
+    donationFrequencyLabel: isRecurring ? "הוראת קבע" : "חד פעמית",
+    paymentInstallments: totalCharges > 0 ? totalCharges : 1,
+    remainingCharges,
+    completedCharges,
+    totalCharges,
+    monthlyAmount: amount,
+    installmentAmount: amount,
+    totalCommitment,
+    currentMonthAmount: amount,
     orderRef: clip(orderRef, 120),
     importedFromNedarim: true,
-    source: "nedarim_callback",
+    source: isRecurring ? "nedarim_recurring" : "nedarim_callback",
     rawNedarim: data
   };
 }
