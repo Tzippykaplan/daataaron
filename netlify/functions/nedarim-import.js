@@ -78,10 +78,16 @@ function getKevaTashlumim(tx) {
   const candidates = [
     tx.KevaTashlumim,
     tx.kevaTashlumim,
+    tx.KevaTashloumim,
+    tx.kevaTashloumim,
     tx.YitratTashloumim,
     tx.YitratTashlumim,
+    tx.Yitra,
     tx.remainingPayments,
-    tx.remainingInstallments
+    tx.remainingInstallments,
+    tx.remainingCharges,
+    tx.TashlumimLeft,
+    tx.tashlumimLeft
   ];
   for (const value of candidates) {
     if (value === null || value === undefined) continue;
