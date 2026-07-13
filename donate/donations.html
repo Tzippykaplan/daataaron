@@ -880,9 +880,20 @@
       };
     }
 
+    function nonRecurringTotalAmount(d) {
+      const tx = (d && d.rawNedarim) || {};
+      const installments = donorInstallmentsSafe(d);
+      const rawAmount = cleanNum(tx.Amount || tx.amount || (tx.Value && tx.Value.Amount) || (tx.value && tx.value.Amount));
+      const amount = cleanNum(d && (d.amount || d.chargedAmount || d.currentMonthAmount));
+      const explicitTotal = cleanNum(d && (d.totalCommitment || d.pledgeAmount || d.totalAmount || d.totalDonationAmount));
+      const base = rawAmount || amount || explicitTotal;
+      if (installments > 1 && base > 0 && explicitTotal > base && Math.abs(explicitTotal - base * installments) < 0.01) return base;
+      return base || explicitTotal;
+    }
+
     function totalDonationAmount(d) {
       const meta = recurringCalcMeta(d);
-      if (!meta.isRecurring) return cleanNum(d && d.amount);
+      if (!meta.isRecurring) return nonRecurringTotalAmount(d);
 
       if (meta.chargeAmount > 0 && meta.bestCount > 0) return meta.chargeAmount * meta.bestCount;
 
@@ -961,8 +972,6 @@
       if (meta.isRecurring) {
         return { key: 'recurring', label: 'הוראת קבע' };
       }
-      const n = cleanNum(d && (d.paymentInstallments || d.installments || d.tashlumim));
-      if (n > 1) return { key: 'one-time', label: 'חד פעמית בתשלומים' };
       return { key: 'one-time', label: 'חד פעמית' };
     }
 
