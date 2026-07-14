@@ -62,7 +62,7 @@
 
   function appsUrl() {
     try {
-      return typeof getAppsScriptUrl === 'function' ? cleanText(getAppsScriptUrl()) : cleanText(window.APPS_SCRIPT_URL || '');
+      return cleanText((window.NDA_CONFIG && window.NDA_CONFIG.APPS_SCRIPT_URL) || window.APPS_SCRIPT_URL || (typeof getAppsScriptUrl === 'function' ? getAppsScriptUrl() : ''));
     } catch (_) { return ''; }
   }
   async function parseJsonResponse(response) {
@@ -90,8 +90,22 @@
     if (!response.ok || data.success === false) throw new Error(data.message || data.error || 'שגיאה בכתיבה ל-Google Sheets');
     return data;
   }
+  function canonicalDonationKey(raw) {
+    const d = normalizeDashboardDonation(raw);
+    if (isRecurringDonation(d)) return 'keva:' + cleanText(d.kevaId || d.externalId || d.id).replace(/^nedarim-(?:\d+-)?keva-/i, '');
+    return 'tx:' + cleanText(d.externalId || d.id).replace(/^nedarim-(?:\d+-)?tx-/i, '');
+  }
+  function dedupeDashboardRows(rows) {
+    const map = new Map();
+    (rows || []).map(normalizeDashboardDonation).forEach(function (d) {
+      const key = canonicalDonationKey(d);
+      if (!map.has(key)) map.set(key, d);
+      else map.set(key, Object.assign({}, map.get(key), d, { donorName: '', honoreeName: '' }));
+    });
+    return Array.from(map.values());
+  }
   function replaceLocalDonors(rows) {
-    donors = (rows || []).map(normalizeDashboardDonation)
+    donors = dedupeDashboardRows(rows)
       .sort(function (a, b) { return new Date(b.paymentDate || b.createdAt || 0) - new Date(a.paymentDate || a.createdAt || 0); });
     if (typeof saveData === 'function') saveData();
     if (typeof renderDashboard === 'function') renderDashboard();
@@ -115,19 +129,18 @@
 
   window.syncNow = async function () {
     try {
-      if (typeof toast === 'function') toast('מסנכרן עם Google Sheets...');
-      const outgoing = (Array.isArray(donors) ? donors : []).map(normalizeDashboardDonation);
-      await sheetsPost({ action: 'sync', donors: outgoing });
+      if (typeof toast === 'function') toast('טוען את הנתונים המשותפים מ-Google Sheets...');
       const rows = await sheetsGet();
       replaceLocalDonors(rows);
       if (typeof settings !== 'undefined') settings.lastSync = new Date().toISOString();
-      if (typeof saveData === 'function') saveData();
       if (typeof updateSyncStatus === 'function') updateSyncStatus(true);
-      if (typeof toast === 'function') toast('הסנכרון הושלם', 'success');
+      if (typeof toast === 'function') toast('הנתונים סונכרנו מכל הדפדפנים', 'success');
+      return rows;
     } catch (error) {
       console.error(error);
       if (typeof updateSyncStatus === 'function') updateSyncStatus(false);
       if (typeof toast === 'function') toast('שגיאה בסנכרון: ' + error.message, 'error');
+      throw error;
     }
   };
 
