@@ -3437,6 +3437,9 @@ function json(obj) {
 .income-pagination button:hover:not(:disabled) { background:var(--primary); border-color:var(--primary); color:#fff; transform:translateY(-1px); }
 .income-pagination button:disabled { opacity:.35; cursor:not-allowed; }
 .income-pagination-info { min-width:150px; text-align:center; font-size:12px; color:var(--text-3); font-weight:600; }
+.income-recent-filter { display:flex; gap:7px; flex-wrap:wrap; margin:10px 0 4px; }
+.income-recent-filter button { border:1px solid var(--border); background:var(--surface); color:var(--text-2); border-radius:999px; padding:7px 12px; font-family:inherit; font-size:12px; font-weight:700; cursor:pointer; }
+.income-recent-filter button.active { background:var(--primary); border-color:var(--primary); color:#fff; }
 @media (max-width:560px) { .income-pagination { gap:7px; } .income-pagination-info { min-width:118px; font-size:11px; } }
 .report-dedication-list .income-row { cursor: default; }
 .report-dedication-list .income-row:hover .income-name { color:var(--text); }
@@ -3448,7 +3451,9 @@ function json(obj) {
   function cleanNum(v){ const n = Number(String(v || 0).replace(/[^0-9.\-]/g, '')); return isNaN(n) ? 0 : n; }
   function parseDonationDate(d){
     
-    const value = d && (d.paymentDate || d.createdAt || d.importedAt || d.TransactionTime || d.date);
+    let rawN = {};
+    try { rawN = d && typeof d.rawNedarim === 'string' ? JSON.parse(d.rawNedarim) : ((d && d.rawNedarim) || {}); } catch(e) { rawN = {}; }
+    const value = d && (d.paymentDate || d.CreatedDate || rawN.CreatedDate || rawN.CreationDate || d.createdAt || d.importedAt || d.TransactionTime || d.date);
     const looksNedarim = !!(d && /nedarim|נדרים/i.test([d.source, d.paymentProcessor, d.processor, d.notes, d.category].filter(Boolean).join(' ')));
     function clampNedarimFutureDate(parsed){
       if (!parsed || isNaN(parsed)) return parsed;
@@ -3473,7 +3478,7 @@ function json(obj) {
       if (parsed && !isNaN(parsed)) return clampNedarimFutureDate(parsed);
     }
     const x = value ? new Date(value) : null;
-    return x && !isNaN(x) ? clampNedarimFutureDate(x) : (looksNedarim ? new Date() : null);
+    return x && !isNaN(x) ? clampNedarimFutureDate(x) : null;
   }
   function startOfMonth(d){ return new Date(d.getFullYear(), d.getMonth(), 1); }
   function endOfMonth(d){ return new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999); }
@@ -3547,7 +3552,14 @@ function json(obj) {
   window.ndaKevaRemainingPayments = kevaRemainingPayments;
   function donationFrequency(d){
     d = d || {};
-    const raw = [d.donationFrequency, d.donationFrequencyLabel, d.paymentType, d.paymentTypeRaw, d.notes, d.rawNedarim && (d.rawNedarim.PaymentType || d.rawNedarim.TransactionType)].filter(Boolean).join(' ').toLowerCase();
+    let tx = {};
+    try { tx = typeof d.rawNedarim === 'string' ? JSON.parse(d.rawNedarim) : (d.rawNedarim || {}); } catch(e) { tx = {}; }
+    const raw = [
+      d.donationFrequency, d.donationFrequencyLabel, d.paymentType, d.paymentTypeRaw,
+      d.source, d.donationSource, d.notes, d.id, d.orderRef, d.KevaId, d.kevaId,
+      tx.KevaId, tx.KevaStatus, tx.KevaName, tx.KevaAmount, tx.KevaTashlumim,
+      tx.PaymentType, tx.TransactionType
+    ].filter(Boolean).join(' ').toLowerCase();
     if (/recurring|(^|[^a-z])hk([^a-z]|$)|הוראת\s*קבע|קבע|standing\s*order|horaat|keva/.test(raw)) return { key:'recurring', label:'הוראת קבע' };
     const n = typeof donorInstallments === 'function' ? donorInstallments(d) : cleanNum(d.paymentInstallments || 1);
     if (n > 1) return { key:'one-time', label:'חד פעמית בתשלומים' };
@@ -3613,9 +3625,23 @@ function json(obj) {
   }
   const RECENT_INCOME_PAGE_SIZE = 12;
   let recentIncomePage = 1;
+  let recentIncomeType = 'all';
+
+  window.setRecentIncomeType = function(type){
+    recentIncomeType = ['all','one-time','recurring'].includes(type) ? type : 'all';
+    recentIncomePage = 1;
+    renderRebuiltDashboard();
+  };
+
+  function recentIncomeRows(){
+    return (donors || []).filter(isPaid).filter(function(d){
+      const key = donationFrequency(d).key;
+      return recentIncomeType === 'all' || key === recentIncomeType;
+    });
+  }
 
   window.changeRecentIncomePage = function(delta){
-    const paidRows = (donors || []).filter(isPaid);
+    const paidRows = recentIncomeRows();
     const totalPages = Math.max(1, Math.ceil(paidRows.length / RECENT_INCOME_PAGE_SIZE));
     recentIncomePage = Math.min(totalPages, Math.max(1, recentIncomePage + Number(delta || 0)));
     renderRebuiltDashboard();
@@ -3653,6 +3679,11 @@ function json(obj) {
       </div>
       <div class="card section">
         <div class="card-title income-detail-title"><div>רשימת תרומות אחרונות כולל פירוט</div><div class="card-subtitle">מקור · חד פעמית / הוראת קבע · תאריך תרומה</div></div>
+        <div class="income-recent-filter" id="recentIncomeTypeFilter">
+          <button type="button" data-recent-type="all" onclick="setRecentIncomeType('all')">הכל</button>
+          <button type="button" data-recent-type="one-time" onclick="setRecentIncomeType('one-time')">חד פעמיות</button>
+          <button type="button" data-recent-type="recurring" onclick="setRecentIncomeType('recurring')">הוראות קבע</button>
+        </div>
         <div id="recentIncomeList"></div>
         <div class="income-pagination" id="recentIncomePagination" aria-label="ניווט בין תרומות אחרונות">
           <button id="recentIncomePrev" type="button" onclick="changeRecentIncomePage(-1)" title="תרומות חדשות יותר" aria-label="תרומות חדשות יותר">&#8594;</button>
@@ -3680,15 +3711,24 @@ function json(obj) {
     normalizeDonationMetadata();
     ensureDashboardLayout();
     const now = new Date();
-    const active = (donors || []).filter(d => isCurrentMonthDonation(d, now));
-    const recentAll = (donors || []).filter(isPaid).slice().sort((a,b) => (parseDonationDate(b)?.getTime() || 0) - (parseDonationDate(a)?.getTime() || 0));
+    const recurringActive = (donors || []).filter(function(d){
+      let raw = {};
+      try { raw = typeof d.rawNedarim === 'string' ? JSON.parse(d.rawNedarim) : (d.rawNedarim || {}); } catch(e) { raw = {}; }
+      const txStatus = String(d && (d.KevaStatus || raw.KevaStatus) || '').trim();
+      return isPaid(d) && donationFrequency(d).key === 'recurring' && d.activeStandingOrder !== false && txStatus !== '2' && txStatus !== '3';
+    });
+    const oneTimeCurrent = (donors || []).filter(function(d){
+      return donationFrequency(d).key !== 'recurring' && isCurrentMonthDonation(d, now);
+    });
+    const active = oneTimeCurrent.concat(recurringActive);
+    const recentAll = recentIncomeRows().slice().sort((a,b) => (parseDonationDate(b)?.getTime() || 0) - (parseDonationDate(a)?.getTime() || 0));
     const recentTotalPages = Math.max(1, Math.ceil(recentAll.length / RECENT_INCOME_PAGE_SIZE));
     if (recentIncomePage > recentTotalPages) recentIncomePage = recentTotalPages;
     if (recentIncomePage < 1) recentIncomePage = 1;
     const recentStart = (recentIncomePage - 1) * RECENT_INCOME_PAGE_SIZE;
     const recent = recentAll.slice(recentStart, recentStart + RECENT_INCOME_PAGE_SIZE);
-    const recurring = active.filter(d => donationFrequency(d).key === 'recurring');
-    const oneTime = active.filter(d => donationFrequency(d).key !== 'recurring');
+    const recurring = recurringActive;
+    const oneTime = oneTimeCurrent;
     const nedarim = (donors || []).filter(d => isPaid(d) && isNedarim(d));
     const website = active.filter(d => !isNedarim(d));
     const totalSums = sumSums(active);
@@ -3710,6 +3750,9 @@ function json(obj) {
     setText('incomeOneTimeTotal', fmtSums(oneTimeSums));
     const list = document.getElementById('recentIncomeList');
     if (list) list.innerHTML = recent.length ? recent.map(donationRow).join('') : '<div class="empty">אין תרומות להצגה</div>';
+    document.querySelectorAll('#recentIncomeTypeFilter [data-recent-type]').forEach(function(btn){
+      btn.classList.toggle('active', btn.getAttribute('data-recent-type') === recentIncomeType);
+    });
 
     const pageInfo = document.getElementById('recentIncomePageInfo');
     const prevBtn = document.getElementById('recentIncomePrev');
@@ -3780,6 +3823,7 @@ function json(obj) {
     window.importNedarimExternalDonations = async function(){
       const result = await oldImport.apply(this, arguments);
       normalizeDonationMetadata();
+      recentIncomePage = 1;
       renderRebuiltDashboard();
       if (document.getElementById('page-reports')?.classList.contains('active')) renderReportsDedicationCard();
       return result;
