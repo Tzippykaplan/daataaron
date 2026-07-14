@@ -1482,7 +1482,7 @@
   <script>
    const HEB_MONTHS = ['תשרי','חשוון','כסלו','טבת','שבט','אדר','אדר א׳','אדר ב׳','ניסן','אייר','סיון','תמוז','אב','אלול'];
   const ORG_NAME = 'נציבי דעת אהרן';
-  const APPS_SCRIPT_URL = (window.NDA_CONFIG && window.NDA_CONFIG.APPS_SCRIPT_URL) || 'https://script.google.com/macros/s/AKfycbz8T_SpCAAR-yIoOnK-1S_ZZgt0Uzr6sV74oVsMP4tZDLThwOHLe0PM7r9pHKfk0qGncg/exec';
+  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz8T_SpCAAR-yIoOnK-1S_ZZgt0Uzr6sV74oVsMP4tZDLThwOHLe0PM7r9pHKfk0qGncg/exec';
   const SPREADSHEET_URL = '';
   const EMAILJS_SERVICE_ID = 'service_3vbhllkb';
   const EMAILJS_TEMPLATE_ID = 'template_exkjfqt';
@@ -1501,10 +1501,10 @@
 
   function loadData() {
     try {
+      const d = localStorage.getItem('nda_donors');
       const s = localStorage.getItem('nda_settings');
-      donors = []; // Always loaded from Google Sheets; never from this browser.
+      if (d) donors = JSON.parse(d);
       if (s) settings = { ...settings, ...JSON.parse(s) };
-      settings.appsScript = APPS_SCRIPT_URL;
       // EmailJS is embedded as a fixed configuration so it stays active even if localStorage has old/blank values.
       settings.emailServiceId = EMAILJS_SERVICE_ID;
       settings.emailTemplateId = EMAILJS_TEMPLATE_ID;
@@ -1513,12 +1513,12 @@
     } catch (e) { console.error(e); }
   }
   function saveData() {
-    settings.appsScript = APPS_SCRIPT_URL;
+    localStorage.setItem('nda_donors', JSON.stringify(donors));
     localStorage.setItem('nda_settings', JSON.stringify(settings));
   }
 
   function getAppsScriptUrl() {
-    return APPS_SCRIPT_URL;
+    return ((settings.appsScript || '').trim()) || APPS_SCRIPT_URL;
   }
 
   function getSpreadsheetUrl() {
@@ -3657,12 +3657,11 @@ function json(obj) {
     normalizeDonationMetadata();
     ensureDashboardLayout();
     const now = new Date();
-    const recurring = (donors || []).filter(d => isPaid(d) && donationFrequency(d).key === 'recurring');
-    const oneTime = (donors || []).filter(d => donationFrequency(d).key !== 'recurring' && isCurrentMonthDonation(d, now));
-    // Monthly dashboard = this month's one-time charges + every currently active standing order's monthly amount.
-    const active = oneTime.concat(recurring);
+    const active = (donors || []).filter(d => isCurrentMonthDonation(d, now));
     const recent = (donors || []).filter(isPaid).slice().sort((a,b) => (parseDonationDate(b)?.getTime() || 0) - (parseDonationDate(a)?.getTime() || 0)).slice(0,12);
-    const nedarim = active.filter(d => isNedarim(d));
+    const recurring = active.filter(d => donationFrequency(d).key === 'recurring');
+    const oneTime = active.filter(d => donationFrequency(d).key !== 'recurring');
+    const nedarim = (donors || []).filter(d => isPaid(d) && isNedarim(d));
     const website = active.filter(d => !isNedarim(d));
     const totalSums = sumSums(active);
     const recurringSums = sumSums(recurring);
@@ -3822,7 +3821,6 @@ function json(obj) {
 
 <!-- <script src="./donations-viewer.js"></script> -->
 
-
-<script src="/js/dashboard-core-v2.js"></script>
+  <script src="/js/data-autoload.js"></script>
 </body>
 </html>
