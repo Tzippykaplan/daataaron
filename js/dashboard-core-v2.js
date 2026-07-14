@@ -1,4 +1,4 @@
-/* Dashboard data core v2 — Google Sheets is the single source of truth. */
+/* Dashboard data core v7 — official Nedarim Keva field mapping; Google Sheets is the single source of truth. */
 (function () {
   'use strict';
 
@@ -8,43 +8,87 @@
     return Number.isFinite(n) ? n : 0;
   }
   function isRecurringDonation(d) {
-    const text = [d && d.donationFrequency, d && d.donationFrequencyLabel, d && d.paymentType, d && d.source]
-      .filter(Boolean).join(' ').toLowerCase();
-    return text.includes('recurring') || text.includes('הוראת קבע') || /(^|[^a-z])hk([^a-z]|$)/.test(text) || cleanText(d && d.kevaId) !== '';
+    const raw = (d && d.rawNedarim && typeof d.rawNedarim === 'object') ? d.rawNedarim : {};
+    const text = [
+      d && d.donationFrequency, d && d.donationFrequencyLabel, d && d.paymentType,
+      d && d.paymentTypeRaw, d && d.source, d && d.TransactionType,
+      raw.TransactionType, raw.PaymentType
+    ].filter(Boolean).join(' ').toLowerCase();
+    const kevaId = cleanText(d && (d.kevaId || d.KevaId || raw.KevaId || raw.KevaID));
+    return kevaId !== '' || text.includes('recurring') || text.includes('הוראת קבע') ||
+      /(^|[^a-z])hk([^a-z]|$)/.test(text) || /הו["״׳']?ק|(^|\s)קבע(\s|$)|keva|horaat/.test(text);
   }
   function normalizeDashboardDonation(input) {
     const d = Object.assign({}, input || {});
-    d.id = cleanText(d.id || d.externalId || d.orderRef);
-    d.fullName = cleanText(d.fullName || d.ClientName || d.KevaName || 'תורם ללא שם');
+    const raw = (d.rawNedarim && typeof d.rawNedarim === 'object') ? d.rawNedarim : {};
+    const recurring = isRecurringDonation(d);
+    const placeholder = function (value) {
+      return /^(?:|תורם הוראת קבע|תורם ללא שם|תורם מנדרים פלוס|תורם)$/.test(cleanText(value).replace(/\s+/g, ' '));
+    };
+    const pickName = function () {
+      const values = [d.KevaName, raw.KevaName, d.ClientName, raw.ClientName, raw.Name, d.fullName];
+      for (const value of values) if (!placeholder(value)) return cleanText(value);
+      return 'תורם ללא שם';
+    };
+    const positiveNumber = function (values) {
+      for (const value of values) { const n = numberValue(value); if (n > 0) return n; }
+      return 0;
+    };
+
+    d.id = cleanText(d.id || d.externalId || d.kevaId || d.KevaId || d.orderRef);
+    d.fullName = pickName();
     d.donorName = '';
     d.honoreeName = '';
-    d.amount = numberValue(d.amount);
-    d.currency = cleanText(d.currency || 'ILS').toUpperCase() === 'USD' ? 'USD' : 'ILS';
-    d.paymentDate = cleanText(d.paymentDate || d.createdAt || d.importedAt);
-    d.createdAt = cleanText(d.createdAt || d.paymentDate || new Date().toISOString());
+    d.amount = recurring
+      ? positiveNumber([d.KevaAmount, raw.KevaAmount, d.Amount, raw.Amount, d.monthlyAmount, d.currentMonthAmount, d.amount])
+      : numberValue(d.amount || d.Amount || raw.Amount || d.chargedAmount);
+    d.currency = cleanText(d.currency || d.KevaCurrency || raw.KevaCurrency || raw.Currency || 'ILS').toUpperCase() === 'USD' || String(d.currency || raw.Currency) === '2' ? 'USD' : 'ILS';
+    d.paymentDate = cleanText(recurring
+      ? (d.CreatedDate || raw.CreatedDate || d.CreationDate || raw.CreationDate || d.paymentDate || d.createdAt)
+      : (d.paymentDate || d.TransactionTime || raw.TransactionTime || d.createdAt));
+    d.createdAt = cleanText(d.createdAt || d.paymentDate);
     d.paymentProcessor = cleanText(d.paymentProcessor || 'Nedarim Plus');
-    d.source = cleanText(d.source || 'nedarim');
+    d.source = cleanText(d.source || (cleanText(d.kevaId || d.KevaId || raw.KevaId) ? 'nedarim_recurring' : 'nedarim'));
     d.status = cleanText(d.status || 'paid');
     d.paymentStatus = cleanText(d.paymentStatus || 'approved');
     d.paymentApproved = d.paymentApproved !== false;
     d.hebDay = cleanText(d.hebDay);
     d.hebMonth = cleanText(d.hebMonth);
+    d.kevaId = cleanText(d.kevaId || d.KevaId || raw.KevaId || raw.KevaID);
+    d.phone = cleanText(d.KevaPhone || raw.KevaPhone || d.Phone || raw.Phone || d.phone);
+    d.email = cleanText(d.KevaMail || raw.KevaMail || d.Mail || raw.Mail || raw.Email || d.email);
+    d.address = cleanText(d.KevaAdresse || raw.KevaAdresse || d.Adresse || raw.Adresse || raw.Address || d.address);
+    d.city = cleanText(d.KevaCity || raw.KevaCity || d.City || raw.City || d.city);
+    d.category = cleanText(d.KevaGroupe || raw.KevaGroupe || d.Groupe || raw.Groupe || raw.Group || d.category);
+    d.notes = cleanText(d.KevaAvour || raw.KevaAvour || d.Comments || raw.Comments || raw.Notes || d.notes);
 
-    if (isRecurringDonation(d)) {
+    if (recurring) {
       d.donationFrequency = 'recurring';
       d.donationFrequencyLabel = 'הוראת קבע';
       d.paymentType = 'HK';
+      d.kevaStatus = cleanText(d.KevaStatus || raw.KevaStatus || d.kevaStatus);
+      if (d.kevaStatus === '2') { d.status = 'frozen'; d.paymentStatus = 'frozen'; d.paymentApproved = false; }
+      else if (d.kevaStatus === '3') { d.status = 'deleted'; d.paymentStatus = 'deleted'; d.paymentApproved = false; }
+      else if (d.kevaStatus === '1') { d.status = 'paid'; d.paymentStatus = 'approved'; d.paymentApproved = true; }
+      d.completedPayments = cleanText(d.KevaSuccess || raw.KevaSuccess || d.completedPayments || raw.Success);
+      d.totalHistoryAmount = numberValue(d.TotalHistoryAmount || raw.TotalHistoryAmount || d.totalHistoryAmount);
+      d.historyCount = numberValue(d.HistoryCount || raw.HistoryCount || d.historyCount);
+      d.nextChargeDate = cleanText(d.KevaNextDate || raw.KevaNextDate || d.NextDate || raw.NextDate || d.nextChargeDate);
+      d.kevaFrequency = cleanText(d.KevaFrequency || raw.KevaFrequency || d.kevaFrequency);
+      d.cardLast4 = cleanText(d.KevaLastNum || raw.KevaLastNum || d.LastNum || raw.LastNum || d.cardLast4).replace(/\D/g, '').slice(-4);
       const remaining = cleanText(
+        d.KevaTashlumim || raw.KevaTashlumim || d.kevaTashlumim || raw.kevaTashlumim ||
         d.remainingPayments || d.remainingInstallments || d.remainingCharges ||
-        d.KevaTashlumim || d.kevaTashlumim
+        d.Itra || raw.Itra || raw.Yitra
       );
       d.remainingPayments = remaining;
       d.remainingInstallments = remaining;
       d.remainingCharges = remaining;
       d.KevaTashlumim = remaining;
       d.kevaTashlumim = remaining;
-      d.monthlyAmount = numberValue(d.monthlyAmount || d.amount);
-      d.currentMonthAmount = numberValue(d.currentMonthAmount || d.amount);
+      d.monthlyAmount = positiveNumber([d.KevaAmount, raw.KevaAmount, d.monthlyAmount, d.Amount, raw.Amount, d.amount]);
+      d.currentMonthAmount = d.monthlyAmount;
+      d.amount = d.monthlyAmount;
     } else {
       d.donationFrequency = 'one_time';
       d.donationFrequencyLabel = 'תשלום בכרטיס אשראי';
@@ -76,6 +120,15 @@
     const response = await fetch(url + '?action=get&t=' + Date.now(), { method: 'GET', cache: 'no-store' });
     const data = await parseJsonResponse(response);
     if (!response.ok || data.success === false) throw new Error(data.message || data.error || 'שגיאה בקריאה מ-Google Sheets');
+    if (Number(data.schemaVersion || 0) < 7) {
+      throw new Error('ה-Web App עדיין מריץ Apps Script ישן. יש להחליף ל-Code.gs החדש ולבצע Deploy → New version באותה פריסה.');
+    }
+    window.NDA_LAST_SHEETS_META = {
+      count: data.count || 0,
+      recurringCount: data.recurringCount || 0,
+      oneTimeCount: data.oneTimeCount || 0,
+      sources: data.sources || {}
+    };
     return Array.isArray(data.donors) ? data.donors.map(normalizeDashboardDonation) : [];
   }
   async function sheetsPost(payload) {
@@ -92,8 +145,12 @@
   }
   function canonicalDonationKey(raw) {
     const d = normalizeDashboardDonation(raw);
-    if (isRecurringDonation(d)) return 'keva:' + cleanText(d.kevaId || d.externalId || d.id).replace(/^nedarim-(?:\d+-)?keva-/i, '');
-    return 'tx:' + cleanText(d.externalId || d.id).replace(/^nedarim-(?:\d+-)?tx-/i, '');
+    if (isRecurringDonation(d)) {
+      const recurringId = cleanText(d.kevaId || d.KevaId || d.externalId || d.id).replace(/^nedarim-(?:\d+-)?keva-/i, '');
+      return 'keva:' + (recurringId || [d.fullName, d.phone, d.amount].join('|'));
+    }
+    const txId = cleanText(d.externalId || d.id).replace(/^nedarim-(?:\d+-)?tx-/i, '');
+    return 'tx:' + (txId || [d.fullName, d.phone, d.amount, d.paymentDate].join('|'));
   }
   function dedupeDashboardRows(rows) {
     const map = new Map();
