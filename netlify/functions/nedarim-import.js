@@ -40,7 +40,7 @@ function collect(value, mode, out=[], depth=0){
   if(typeof value!=='object')return out;
   const keys=Object.keys(value);
   const isHistory=['TransactionId','TransactionTime','ClientName','Amount'].some(k=>keys.includes(k));
-  const isKeva=['KevaId','KevaName','KevaAmount','KevaTashlumim'].some(k=>text(value[k])!=='');
+  const isKeva=text(value.KevaId||value.KevaID)!=='' || ['KevaName','KevaAmount','KevaTashlumim','ClientName','Amount','Itra'].some(k=>text(value[k])!=='');
   if(mode==='history'&&isHistory)out.push(value);
   if(mode==='keva'&&isKeva)out.push(value);
   Object.values(value).forEach(x=>{ if(x&&typeof x==='object'||typeof x==='string') collect(x,mode,out,depth+1); });
@@ -52,10 +52,10 @@ function parseRows(raw, mode){
   return rows.filter((r,i)=>{ const key=mode==='keva'?text(r.KevaId||`${r.KevaName}|${r.KevaPhone}|${r.KevaAmount}|${i}`):text(r.TransactionId||`${r.ClientName}|${r.TransactionTime}|${r.Amount}|${i}`); if(seen.has(key))return false; seen.add(key); return true; });
 }
 function isInactiveKeva(r){
-  const status=[r.Status,r.status,r.Notes,r.KevaAvour].filter(Boolean).join(' ').toLowerCase();
-  const active=text(r.Active||r.IsActive).toLowerCase();
-  const cancelled=text(r.Cancelled||r.Canceled||r.IsCancelled).toLowerCase();
-  return /מבוטל|בוטל|cancel|inactive|לא\s*פעיל|הופסק/.test(status)||active==='false'||active==='0'||cancelled==='true'||cancelled==='1';
+  const status=[r.Status,r.status,r.Notes,r.KevaAvour,r.Comments,r.ErrorText].filter(Boolean).join(' ').toLowerCase();
+  const active=text(r.Enabled ?? r.Active ?? r.IsActive).toLowerCase();
+  const cancelled=text(r.Cancelled ?? r.Canceled ?? r.IsCancelled).toLowerCase();
+  return /מבוטל|בוטל|cancel|inactive|לא\s*פעיל|הופסק|אין\s*יתרת\s*תשלומים/.test(status)||active==='false'||active==='0'||cancelled==='true'||cancelled==='1';
 }
 function mapHistory(r, mosadId){
   const txId=text(r.TransactionId||r.Id||r.Shovar||r.KabalaId)||hash([r.ClientName,r.Phone,r.Mail,r.Amount,dateDay(r.TransactionTime),r.Groupe].join('|'));
@@ -79,22 +79,29 @@ function mapHistory(r, mosadId){
   };
 }
 function mapKeva(r, mosadId){
-  const id=text(r.KevaId); if(!id)return null;
-  const remaining=text(r.KevaTashlumim).replace(/[^0-9]/g,'');
-  const monthly=amount(r.KevaAmount);
+  const id=text(r.KevaId||r.KevaID); if(!id)return null;
+  // ה-API בפועל מחזיר לעיתים את שדות ההוראה בשמות הכלליים הבאים:
+  // ClientName, Amount, Itra, CreationDate, Phone, Mail, Adresse, City, Groupe, Comments.
+  const remaining=text(r.KevaTashlumim ?? r.kevaTashlumim ?? r.Itra ?? r.Yitra).replace(/[^0-9]/g,'');
+  const monthly=amount(r.KevaAmount ?? r.Amount ?? r.MonthlyAmount);
+  const created=parseDate(r.CreatedDate||r.CreationDate||r.StartDate||r.StartFrom);
+  const inactive=isInactiveKeva(r);
   return {
     id:`nedarim-${mosadId}-keva-${id}`,
     externalId:id, kevaId:id,
-    fullName:text(r.KevaName)||'תורם הוראת קבע',
-    phone:text(r.KevaPhone), email:text(r.KevaMail), address:text(r.KevaAdresse), city:text(r.KevaCity),
-    category:text(r.KevaGroupe), memoryContent:text(r.KevaAvour), notes:text(r.KevaAvour),
-    status:isInactiveKeva(r)?'unpaid':'paid', amount:monthly, monthlyAmount:monthly, currentMonthAmount:monthly,
-    currency:currency(r.KevaCurrency), paymentProcessor:'Nedarim Plus',
-    paymentStatus:isInactiveKeva(r)?'inactive':'approved', paymentApproved:!isInactiveKeva(r),
+    fullName:text(r.KevaName||r.ClientName||r.Name)||'תורם ללא שם',
+    phone:text(r.KevaPhone||r.Phone), email:text(r.KevaMail||r.Mail||r.Email),
+    address:text(r.KevaAdresse||r.Adresse||r.Address), city:text(r.KevaCity||r.City),
+    category:text(r.KevaGroupe||r.Groupe||r.Group||r.Category),
+    memoryContent:text(r.KevaAvour||r.Comments||r.Comment||r.Notes),
+    notes:text(r.KevaAvour||r.Comments||r.Comment||r.Notes),
+    status:inactive?'unpaid':'paid', amount:monthly, monthlyAmount:monthly, currentMonthAmount:monthly,
+    currency:currency(r.KevaCurrency||r.Currency), paymentProcessor:'Nedarim Plus',
+    paymentStatus:inactive?'inactive':'approved', paymentApproved:!inactive,
     orderRef:`NED-HK-${id}`, paymentType:'HK', donationFrequency:'recurring', donationFrequencyLabel:'הוראת קבע',
     remainingPayments:remaining, remainingInstallments:remaining, remainingCharges:remaining,
     KevaTashlumim:remaining, kevaTashlumim:remaining,
-    paymentDate:parseDate(r.CreatedDate)||new Date().toISOString(), createdAt:parseDate(r.CreatedDate)||new Date().toISOString(),
+    paymentDate:created, createdAt:created,
     source:'nedarim_recurring', rawNedarim:r, hebDay:'', hebMonth:'', donorName:'', honoreeName:''
   };
 }
