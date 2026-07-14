@@ -17,6 +17,8 @@ function reply(statusCode, body) {
 }
 function text(v){ return String(v == null ? '' : v).trim(); }
 function amount(v){ const n=Number(text(v).replace(/[₪$,\s]/g,'').replace(/,/g,'')); return Number.isFinite(n)?n:0; }
+function hash(v){ let h=2166136261; const s=text(v); for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h+=(h<<1)+(h<<4)+(h<<7)+(h<<8)+(h<<24);} return (h>>>0).toString(36); }
+function dateDay(v){ const d=parseDate(v); return d?d.slice(0,10):''; }
 function currency(v){ const s=text(v); return s==='2'||/usd|dollar|דולר|\$/i.test(s)?'USD':'ILS'; }
 function parseDate(v){
   const s=text(v); if(!s) return '';
@@ -56,7 +58,7 @@ function isInactiveKeva(r){
   return /מבוטל|בוטל|cancel|inactive|לא\s*פעיל|הופסק/.test(status)||active==='false'||active==='0'||cancelled==='true'||cancelled==='1';
 }
 function mapHistory(r, mosadId){
-  const txId=text(r.TransactionId||r.Id||r.Shovar||r.KabalaId);
+  const txId=text(r.TransactionId||r.Id||r.Shovar||r.KabalaId)||hash([r.ClientName,r.Phone,r.Mail,r.Amount,dateDay(r.TransactionTime),r.Groupe].join('|'));
   const transactionType=text(r.TransactionType||r.PaymentType||'רגיל');
   // History rows marked הו"ק are charges of an existing standing order. They are not shown again.
   if(/הו["״']?ק|הוראת\s*קבע|(^|[^a-z])hk([^a-z]|$)|keva|recurring/i.test(transactionType)) return null;
@@ -120,9 +122,16 @@ exports.handler=async function(event){
   try{
     const history=[]; let cursor='';
     for(let p=0;p<pages;p++){ const rows=await fetchHistory({mosadId,password,lastId:cursor,maxId}); if(!rows.length)break; history.push(...rows); const next=Math.max(...rows.map(r=>Number(r.TransactionId||0)).filter(Number.isFinite),0); if(!next||String(next)===cursor||rows.length<maxId)break; cursor=String(next); }
-    const historyDonors=history.filter(r=>categoryMatches(r,wanted)).map(r=>mapHistory(r,mosadId)).filter(Boolean);
+    const historyMap=new Map();
+    history.filter(r=>categoryMatches(r,wanted)).map(r=>mapHistory(r,mosadId)).filter(Boolean).forEach(d=>historyMap.set(d.id,d));
+    const historyDonors=[...historyMap.values()];
     const keva=await fetchKeva({mosadId,password,maxId,debug});
-    const kevaDonors=(keva.rows||[]).filter(r=>categoryMatches(r,wanted)).map(r=>mapKeva(r,mosadId)).filter(Boolean);
-    return reply(200,{success:true,imported:historyDonors.length+kevaDonors.length,importedHistory:historyDonors.length,importedKeva:kevaDonors.length,fetched:history.length,fetchedKeva:(keva.rows||[]).length,donors:[...historyDonors,...kevaDonors],kevaEndpoint:keva.endpoint,kevaAction:keva.action,debug:debug?{kevaAttempts:keva.attempts}:undefined});
+    const kevaMap=new Map();
+    (keva.rows||[]).filter(r=>categoryMatches(r,wanted)).map(r=>mapKeva(r,mosadId)).filter(Boolean).forEach(d=>kevaMap.set(d.id,d));
+    const kevaDonors=[...kevaMap.values()];
+    const allMap=new Map();
+    [...historyDonors,...kevaDonors].forEach(d=>allMap.set(d.id,d));
+    const donors=[...allMap.values()];
+    return reply(200,{success:true,imported:donors.length,importedHistory:historyDonors.length,importedKeva:kevaDonors.length,fetched:history.length,fetchedKeva:(keva.rows||[]).length,duplicatesRemoved:(history.length+(keva.rows||[]).length)-donors.length,donors,kevaEndpoint:keva.endpoint,kevaAction:keva.action,debug:debug?{kevaAttempts:keva.attempts}:undefined});
   }catch(e){return reply(500,{success:false,message:e.message});}
 };
