@@ -420,6 +420,7 @@
       font-size: 13px;
     }
   </style>
+  <script src="/js/config.js"></script>
 </head>
 <body>
   <header class="site-header">
@@ -511,7 +512,7 @@
     const DEBUG_RECURRING = DEBUG_RECURRING_LEVEL > 0;
 
     const CONFIG = {
-      APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbxDR_PiR9H2qcYM35vARU2HsugG5ZkQ3_AdzuK-yHcf83bcmzHCshfhR-ElR5yR-do4Bg/exec'
+      APPS_SCRIPT_URL: (window.NDA_CONFIG && window.NDA_CONFIG.APPS_SCRIPT_URL) || 'https://script.google.com/macros/s/AKfycbz8T_SpCAAR-yIoOnK-1S_ZZgt0Uzr6sV74oVsMP4tZDLThwOHLe0PM7r9pHKfk0qGncg/exec'
     };
 
     const T = {
@@ -532,8 +533,8 @@
         sumChipOneTime: 'חד פעמיות',
         sumCard1Title: 'סה״כ תרומות החודש',
         sumCard1Sub: 'לפי תאריך תרומה',
-        sumCard2Title: 'סך תרומות נדרים פלוס',
-        sumCard2Sub: 'כל התרומות ששולמו דרך נדרים פלוס',
+        sumCard2Title: 'תרומות נדרים פלוס החודש',
+        sumCard2Sub: 'חד פעמי החודש + הוראות קבע פעילות',
         sumCard3Title: 'הוראות קבע פעילות',
         sumCard3Sub: 'הסכום שנכנס החודש',
         result: 'תוצאות',
@@ -559,8 +560,8 @@
         sumChipOneTime: 'one-time',
         sumCard1Title: 'Total Monthly Donations',
         sumCard1Sub: 'by donation date',
-        sumCard2Title: 'Nedarim Plus Donations',
-        sumCard2Sub: 'paid through Nedarim Plus',
+        sumCard2Title: 'Nedarim Plus This Month',
+        sumCard2Sub: 'monthly one-time + active recurring',
         sumCard3Title: 'Active Recurring',
         sumCard3Sub: 'amount received this month',
         result: 'results',
@@ -621,7 +622,9 @@
 
       const x = value ? new Date(value) : null;
       if (x && !Number.isNaN(x.getTime())) return clampNedarimFutureDate(x);
-      return looksNedarim ? new Date() : null;
+      // Never convert a missing/invalid donation date into today's date.
+      // The previous fallback caused every old Nedarim row with a bad date to be counted this month.
+      return null;
     }
 
     function startOfMonth(d) { return new Date(d.getFullYear(), d.getMonth(), 1); }
@@ -1021,10 +1024,18 @@
     }
 
     function renderSummary() {
-      const monthly = allRows.filter(function(r){ return isCurrentMonthDonation(r.raw, new Date()); });
-      const recurring = monthly.filter(function(r){ return donationFrequency(r.raw).key === 'recurring'; });
-      const oneTime = monthly.filter(function(r){ return donationFrequency(r.raw).key !== 'recurring'; });
-      const nedarim = allRows.filter(function(r){ return isPaid(r.raw) && isNedarim(r.raw); });
+      const now = new Date();
+      const activeRecurring = allRows.filter(function(r){
+        return isPaid(r.raw) && donationFrequency(r.raw).key === 'recurring';
+      });
+      const monthlyOneTime = allRows.filter(function(r){
+        return donationFrequency(r.raw).key !== 'recurring' && isCurrentMonthDonation(r.raw, now);
+      });
+      // Active standing orders contribute their monthly amount every month, regardless of their creation date.
+      const monthly = monthlyOneTime.concat(activeRecurring);
+      const recurring = activeRecurring;
+      const oneTime = monthlyOneTime;
+      const nedarim = monthly.filter(function(r){ return isNedarim(r.raw); });
 
       if (DEBUG_RECURRING) {
         const recurringRows = recurring.map(function(r){
@@ -1370,15 +1381,8 @@
           if (data && Array.isArray(data.donors)) list = data.donors;
         }
       } catch (e) {}
+      // No browser fallback: every browser displays the shared Google Sheets data.
 
-      if (!list.length) {
-        try {
-          list = JSON.parse(localStorage.getItem('nda_donors') || '[]');
-          if (!Array.isArray(list)) list = [];
-        } catch (e) {
-          list = [];
-        }
-      }
 
       allRows = normalizeRows(list);
       if (!opts.preservePage) state.page = 1;
