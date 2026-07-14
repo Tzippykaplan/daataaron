@@ -1,5 +1,5 @@
-/* Central site configuration. Google Sheets is the source of truth. */
 window.NDA_CONFIG = Object.freeze({
-  APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbz8T_SpCAAR-yIoOnK-1S_ZZgt0Uzr6sV74oVsMP4tZDLThwOHLe0PM7r9pHKfk0qGncg/exec'
+  APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbz8T_SpCAAR-yIoOnK-1S_ZZgt0Uzr6sV74oVsMP4tZDLThwOHLe0PM7r9pHKfk0qGncg/exec',
+  DASHBOARD_REFRESH_MS: 60000,
+  NEDARIM_IMPORT_MS: 300000
 });
-window.APPS_SCRIPT_URL = window.NDA_CONFIG.APPS_SCRIPT_URL;

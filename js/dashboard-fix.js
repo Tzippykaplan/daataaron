@@ -83,37 +83,15 @@
       }
     });
 
-    // Keep exactly one payment-count badge. The main dashboard renderer may already
-    // create it, so dashboard-fix must not append a second copy.
-    const paymentBadges = Array.from(row.querySelectorAll('.income-badge')).filter(function (badge) {
-      return /^(?:יתרת תשלומים|מספר תשלומים|חיובים שבוצעו)\s*:/.test(text(badge.textContent));
-    });
-
-    if (!recurring) {
-      paymentBadges.forEach(function (badge) { badge.remove(); });
-      return;
-    }
-
+    row.querySelectorAll('.nda-payment-count').forEach(el => el.remove());
+    if (!recurring) return;
     const info = countInfo(d);
-    if (!info) {
-      paymentBadges.forEach(function (badge) { badge.remove(); });
-      return;
-    }
-
-    const wantedText = info.label + ': ' + info.value;
-    if (paymentBadges.length) {
-      const firstBadge = paymentBadges[0];
-      firstBadge.textContent = wantedText;
-      firstBadge.classList.add('recurring', 'nda-payment-count');
-      paymentBadges.slice(1).forEach(function (badge) { badge.remove(); });
-      return;
-    }
-
+    if (!info) return;
     const meta = row.querySelector('.income-meta');
     if (!meta) return;
     const badge = document.createElement('span');
     badge.className = 'income-badge recurring nda-payment-count';
-    badge.textContent = wantedText;
+    badge.textContent = info.label + ': ' + info.value;
     meta.appendChild(badge);
   }
 
