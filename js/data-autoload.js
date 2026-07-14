@@ -49,12 +49,12 @@
     const raw = rawObject(d);
     const recurring = /recurring|הוראת\s*קבע|(^|[^a-z])hk([^a-z]|$)|keva/i.test([
       d.donationFrequency, d.donationFrequencyLabel, d.paymentType, d.source,
-      d.KevaId, d.kevaId, raw.KevaId, raw.KevaStatus
+      d.KevaId, d.kevaId, raw.KevaId, raw.KevaStatus, raw.KevaName, raw.KevaAmount
     ].filter(Boolean).join(' '));
 
     if (recurring) {
-      d.fullName = text(first([raw.KevaName, raw.ClientName, d.fullName, d.KevaName])) || 'תורם ללא שם';
-      d.amount = normalizeNumber(first([raw.KevaAmount, raw.Amount, d.amount, d.monthlyAmount]));
+      d.fullName = text(first([raw.KevaName, d.KevaName, raw.ClientName, d.fullName])) || 'תורם ללא שם';
+      d.amount = normalizeNumber(first([raw.KevaAmount, d.KevaAmount, raw.Amount, d.amount, d.monthlyAmount]));
       d.monthlyAmount = d.amount;
       d.currentMonthAmount = d.amount;
       const left = text(first([
@@ -66,13 +66,21 @@
       d.remainingPayments = left;
       d.remainingInstallments = left;
       d.remainingCharges = left;
-      d.paymentDate = text(first([raw.CreatedDate, raw.CreationDate, d.paymentDate, d.createdAt]));
+      d.paymentDate = text(first([raw.CreatedDate, d.CreatedDate, raw.CreationDate, d.paymentDate, d.createdAt]));
+      d.phone = text(first([raw.KevaPhone, d.KevaPhone, raw.Phone, d.phone]));
+      d.email = text(first([raw.KevaMail, d.KevaMail, raw.Mail, d.email]));
+      d.address = text(first([raw.KevaAdresse, d.KevaAdresse, raw.Adresse, d.address]));
+      d.city = text(first([raw.KevaCity, d.KevaCity, raw.City, d.city]));
+      d.category = text(first([raw.KevaGroupe, d.KevaGroupe, raw.Groupe, d.category]));
       d.donationFrequency = 'recurring';
       d.donationFrequencyLabel = 'הוראת קבע';
       d.paymentType = 'HK';
-      d.status = String(raw.KevaStatus || '') === '2' ? 'frozen' : 'paid';
-      d.paymentStatus = d.status === 'paid' ? 'approved' : 'frozen';
+      const officialStatus = String(first([raw.KevaStatus, d.KevaStatus]) || '').trim();
+      d.KevaStatus = officialStatus;
+      d.status = officialStatus === '2' ? 'frozen' : officialStatus === '3' ? 'unpaid' : 'paid';
+      d.paymentStatus = d.status === 'paid' ? 'approved' : (d.status === 'frozen' ? 'frozen' : 'inactive');
       d.paymentApproved = d.status === 'paid';
+      d.activeStandingOrder = d.status === 'paid';
       d.source = 'nedarim_recurring';
     }
     d.donorName = '';
