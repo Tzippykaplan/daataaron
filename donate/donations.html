@@ -419,6 +419,27 @@
       color: var(--text-3);
       font-size: 13px;
     }
+
+    body.data-loading .summary-hero,
+    body.data-loading .summary-card {
+      position: relative;
+    }
+    body.data-loading .summary-hero::after {
+      content: '';
+      position: absolute;
+      inset-inline: 12%;
+      bottom: 10px;
+      height: 3px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,.8), transparent);
+      animation: dataLoadingSweep 1.2s linear infinite;
+    }
+    @keyframes dataLoadingSweep {
+      from { transform: translateX(55%); opacity: .35; }
+      50% { opacity: 1; }
+      to { transform: translateX(-55%); opacity: .35; }
+    }
+
   </style>
   <script src="/js/config.js"></script>
 </head>
@@ -579,7 +600,9 @@
     const PAGE_SIZE = 15;
     const AUTO_REFRESH_MS = Number((window.NDA_CONFIG && window.NDA_CONFIG.DASHBOARD_REFRESH_MS) || 60000);
     const AUTO_IMPORT_MS = Number((window.NDA_CONFIG && window.NDA_CONFIG.NEDARIM_IMPORT_MS) || 300000);
-    const DONATIONS_CACHE_KEY = 'nda_public_donations_cache_v3';
+    const DONATIONS_CACHE_KEY = 'nda_public_donations_cache_v4';
+    const DONATIONS_CACHE_TIME_KEY = 'nda_public_donations_cache_time_v4';
+    const FAST_DATA_URL = '/.netlify/functions/donations-public';
     const LAST_IMPORT_KEY = 'nda_public_last_nedarim_import_v3';
     let allRows = [];
     let refreshTimer = null;
@@ -1313,7 +1336,7 @@
       renderSummary();
     }
 
-    function setLang(lang) {
+    function setLang(lang, skipRender) {
       state.lang = lang === 'en' ? 'en' : 'he';
       localStorage.setItem('dedication_language', state.lang);
       document.documentElement.lang = state.lang;
@@ -1354,7 +1377,7 @@
       q('langHe').classList.toggle('active', state.lang === 'he');
       q('langEn').classList.toggle('active', state.lang === 'en');
 
-      render();
+      if (!skipRender) render();
     }
 
     function bindInputs() {
@@ -1373,9 +1396,21 @@
       q('langEn').addEventListener('click', function(){ setLang('en'); });
     }
 
+    function setLoadingState(isLoading) {
+      const total = q('sumTotal');
+      const count = q('resultCount');
+      if (!total || !count) return;
+      document.body.classList.toggle('data-loading', !!isLoading);
+      if (isLoading && !allRows.length) {
+        total.textContent = state.lang === 'he' ? 'טוען…' : 'Loading…';
+        count.textContent = state.lang === 'he' ? 'טוען נתונים…' : 'Loading data…';
+      }
+    }
+
     function cacheRows(list) {
       try {
         localStorage.setItem(DONATIONS_CACHE_KEY, JSON.stringify(Array.isArray(list) ? list : []));
+        localStorage.setItem(DONATIONS_CACHE_TIME_KEY, String(Date.now()));
       } catch (e) {}
     }
 
@@ -1406,21 +1441,46 @@
       if (fetchInFlight) return null;
       const opts = options || {};
       fetchInFlight = true;
+      if (!allRows.length) setLoadingState(true);
+      const controller = new AbortController();
+      const timeout = window.setTimeout(function(){ controller.abort(); }, 10000);
       try {
-        const res = await fetch(CONFIG.APPS_SCRIPT_URL + '?action=get&t=' + Date.now(), { cache: 'no-store' });
+        const url = FAST_DATA_URL + '?t=' + Date.now();
+        const res = await fetch(url, {
+          cache: 'no-store',
+          signal: controller.signal,
+          headers: { 'Accept': 'application/json' }
+        });
         const data = await responseJson(res, 'Google Sheets');
         const list = data && Array.isArray(data.donors) ? data.donors : [];
-        cacheRows(list);
-        allRows = normalizeRows(list);
-        if (!opts.preservePage) state.page = 1;
-        render();
+        if (list.length || !allRows.length) {
+          cacheRows(list);
+          allRows = normalizeRows(list);
+          if (!opts.preservePage) state.page = 1;
+          render();
+        }
         return list;
       } catch (e) {
-        console.error('טעינת התרומות מ-Google Sheets נכשלה', e);
-        // הנתונים האחרונים שכבר הוצגו נשארים על המסך.
+        console.error('טעינת התרומות המהירה נכשלה', e);
+        // משאירים את העותק האחרון על המסך. רק אם אין שום עותק מנסים ישירות מ-Apps Script.
+        if (!allRows.length && !opts.directFallback) {
+          try {
+            const direct = await fetch(CONFIG.APPS_SCRIPT_URL + '?action=get&t=' + Date.now(), { cache: 'no-store' });
+            const directData = await responseJson(direct, 'Google Sheets');
+            const directList = directData && Array.isArray(directData.donors) ? directData.donors : [];
+            cacheRows(directList);
+            allRows = normalizeRows(directList);
+            render();
+            return directList;
+          } catch (directError) {
+            console.error('גם הטעינה הישירה נכשלה', directError);
+          }
+        }
         return null;
       } finally {
+        window.clearTimeout(timeout);
         fetchInFlight = false;
+        setLoadingState(false);
       }
     }
 
@@ -1500,16 +1560,20 @@
       const urlLang = new URLSearchParams(window.location.search).get('lang');
       const stored = localStorage.getItem('dedication_language');
       const initial = urlLang === 'en' || urlLang === 'he' ? urlLang : (stored === 'en' ? 'en' : 'he');
-      setLang(initial);
+      // קודם משחזרים את העותק המקומי ורק אחר כך מרנדרים, כדי שלא יופיע 0 בזמן הטעינה.
+      setLang(initial, true);
+      const hadCache = restoreCachedRows();
+      if (!hadCache) {
+        setLoadingState(true);
+        render();
+        setLoadingState(true);
+      }
 
-      // מציג מיד את העותק האחרון שנשמר בדפדפן, אך Google Sheets נשאר מקור האמת.
-      restoreCachedRows();
+      // העדכון מהשרת מתבצע ברקע ואינו מוחק את הנתונים שכבר מוצגים.
+      await fetchRows({ preservePage: hadCache });
 
-      // קודם טוענים את הנתונים שכבר קיימים בגיליון, כדי שהעמוד לא ייפתח על 0.
-      await fetchRows();
-
-      // אחר כך מייבאים מנדרים ברקע, שומרים בגיליון ומרעננים את התצוגה.
-      importNedarimAutomatically({ force: true });
+      // הייבוא הכבד אינו מעכב את פתיחת העמוד. הוא מופעל רק ברקע ולא יותר מפעם בחמש דקות.
+      window.setTimeout(function(){ importNedarimAutomatically(); }, 5000);
     }
 
     document.addEventListener('DOMContentLoaded', init);
