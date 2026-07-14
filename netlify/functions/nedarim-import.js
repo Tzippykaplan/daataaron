@@ -51,11 +51,26 @@ function parseRows(raw, mode){
   const rows=collect(parsed,mode); const seen=new Set();
   return rows.filter((r,i)=>{ const key=mode==='keva'?text(r.KevaId||`${r.KevaName}|${r.KevaPhone}|${r.KevaAmount}|${i}`):text(r.TransactionId||`${r.ClientName}|${r.TransactionTime}|${r.Amount}|${i}`); if(seen.has(key))return false; seen.add(key); return true; });
 }
-function isInactiveKeva(r){
-  const status=[r.Status,r.status,r.Notes,r.KevaAvour,r.Comments,r.ErrorText].filter(Boolean).join(' ').toLowerCase();
+function kevaState(r){
+  const official=text(r.KevaStatus ?? r.kevaStatus);
+  if(official==='1')return {status:'paid',paymentStatus:'approved',approved:true,active:true,deleted:false};
+  if(official==='2')return {status:'frozen',paymentStatus:'frozen',approved:false,active:false,deleted:false};
+  if(official==='3')return {status:'deleted',paymentStatus:'deleted',approved:false,active:false,deleted:true};
+  const status=[r.Status,r.status,r.Notes,r.KevaAvour,r.Comments,r.ErrorText,r.KevaObservation].filter(Boolean).join(' ').toLowerCase();
+  if(/נמחק|מבוטל|בוטל|cancel|deleted/.test(status))return {status:'deleted',paymentStatus:'deleted',approved:false,active:false,deleted:true};
+  if(/מוקפא|frozen|paused/.test(status))return {status:'frozen',paymentStatus:'frozen',approved:false,active:false,deleted:false};
+  if(/inactive|לא\s*פעיל|הופסק|אין\s*יתרת\s*תשלומים/.test(status))return {status:'unpaid',paymentStatus:'inactive',approved:false,active:false,deleted:false};
   const active=text(r.Enabled ?? r.Active ?? r.IsActive).toLowerCase();
   const cancelled=text(r.Cancelled ?? r.Canceled ?? r.IsCancelled).toLowerCase();
-  return /מבוטל|בוטל|cancel|inactive|לא\s*פעיל|הופסק|אין\s*יתרת\s*תשלומים/.test(status)||active==='false'||active==='0'||cancelled==='true'||cancelled==='1';
+  if(active==='false'||active==='0')return {status:'unpaid',paymentStatus:'inactive',approved:false,active:false,deleted:false};
+  if(cancelled==='true'||cancelled==='1')return {status:'deleted',paymentStatus:'deleted',approved:false,active:false,deleted:true};
+  return {status:'paid',paymentStatus:'approved',approved:true,active:true,deleted:false};
+}
+function isInactiveKeva(r){ return !kevaState(r).active; }
+function sanitizeRawKeva(r){
+  const clean={...(r||{})};
+  delete clean.KevaCVV; delete clean.CVV; delete clean.Cvv; delete clean.cvv;
+  return clean;
 }
 function mapHistory(r, mosadId){
   const txId=text(r.TransactionId||r.Id||r.Shovar||r.KabalaId)||hash([r.ClientName,r.Phone,r.Mail,r.Amount,dateDay(r.TransactionTime),r.Groupe].join('|'));
@@ -75,17 +90,18 @@ function mapHistory(r, mosadId){
     paymentInstallments:Number(text(r.Tashloumim).replace(/\D/g,''))||1,
     paymentDate:parseDate(r.TransactionTime)||new Date().toISOString(),
     createdAt:parseDate(r.TransactionTime)||new Date().toISOString(), source:'nedarim_card',
-    rawNedarim:r, hebDay:'', hebMonth:'', donorName:'', honoreeName:''
+    rawNedarim:sanitizeRawKeva(r), hebDay:'', hebMonth:'', donorName:'', honoreeName:''
   };
 }
 function mapKeva(r, mosadId){
   const id=text(r.KevaId||r.KevaID); if(!id)return null;
-  // ה-API בפועל מחזיר לעיתים את שדות ההוראה בשמות הכלליים הבאים:
-  // ClientName, Amount, Itra, CreationDate, Phone, Mail, Adresse, City, Groupe, Comments.
+  const state=kevaState(r); if(state.deleted)return null;
+  // המבנה הרשמי קודם. ClientName/Amount/Itra/CreationDate הם fallback לנתונים ישנים.
   const remaining=text(r.KevaTashlumim ?? r.kevaTashlumim ?? r.Itra ?? r.Yitra).replace(/[^0-9]/g,'');
   const monthly=amount(r.KevaAmount ?? r.Amount ?? r.MonthlyAmount);
   const created=parseDate(r.CreatedDate||r.CreationDate||r.StartDate||r.StartFrom);
-  const inactive=isInactiveKeva(r);
+  const nextDate=parseDate(r.KevaNextDate||r.NextDate);
+  const raw=sanitizeRawKeva(r);
   return {
     id:`nedarim-${mosadId}-keva-${id}`,
     externalId:id, kevaId:id,
@@ -95,14 +111,19 @@ function mapKeva(r, mosadId){
     category:text(r.KevaGroupe||r.Groupe||r.Group||r.Category),
     memoryContent:text(r.KevaAvour||r.Comments||r.Comment||r.Notes),
     notes:text(r.KevaAvour||r.Comments||r.Comment||r.Notes),
-    status:inactive?'unpaid':'paid', amount:monthly, monthlyAmount:monthly, currentMonthAmount:monthly,
-    currency:currency(r.KevaCurrency||r.Currency), paymentProcessor:'Nedarim Plus',
-    paymentStatus:inactive?'inactive':'approved', paymentApproved:!inactive,
+    status:state.status, amount:monthly, monthlyAmount:monthly, currentMonthAmount:monthly,
+    currency:currency(r.KevaCurrency??r.Currency), paymentProcessor:'Nedarim Plus',
+    paymentStatus:state.paymentStatus, paymentApproved:state.approved,
     orderRef:`NED-HK-${id}`, paymentType:'HK', donationFrequency:'recurring', donationFrequencyLabel:'הוראת קבע',
     remainingPayments:remaining, remainingInstallments:remaining, remainingCharges:remaining,
     KevaTashlumim:remaining, kevaTashlumim:remaining,
+    kevaStatus:text(r.KevaStatus), completedPayments:text(r.KevaSuccess??r.Success).replace(/\D/g,''),
+    totalHistoryAmount:amount(r.TotalHistoryAmount), historyCount:Number(text(r.HistoryCount).replace(/\D/g,''))||0,
+    nextChargeDate:nextDate, kevaFrequency:text(r.KevaFrequency),
+    cardLast4:text(r.KevaLastNum||r.LastNum).replace(/\D/g,'').slice(-4),
+    systemObservation:text(r.KevaObservation||r.ErrorText),
     paymentDate:created, createdAt:created,
-    source:'nedarim_recurring', rawNedarim:r, hebDay:'', hebMonth:'', donorName:'', honoreeName:''
+    source:'nedarim_recurring', rawNedarim:raw, hebDay:'', hebMonth:'', donorName:'', honoreeName:''
   };
 }
 async function getJson(url){ const res=await fetch(url,{headers:{Accept:'application/json,text/plain,*/*'}}); const raw=await res.text(); return {res,raw}; }
