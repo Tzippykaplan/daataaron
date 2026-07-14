@@ -3432,6 +3432,12 @@ function json(obj) {
 .income-amount { font-weight:900; font-size:18px; color:var(--primary); white-space:nowrap; text-align:left; }
 .income-detail-title { display:flex; align-items:center; justify-content:space-between; gap:10px; }
 .income-detail-title .card-subtitle { font-size:12px; color:var(--text-3); font-weight:500; }
+.income-pagination { display:flex; align-items:center; justify-content:center; gap:10px; padding:16px 0 2px; border-top:1px solid var(--border); margin-top:4px; }
+.income-pagination button { width:38px; height:38px; border:1px solid var(--border); background:var(--surface); color:var(--primary); border-radius:12px; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; font-family:inherit; transition:.18s ease; }
+.income-pagination button:hover:not(:disabled) { background:var(--primary); border-color:var(--primary); color:#fff; transform:translateY(-1px); }
+.income-pagination button:disabled { opacity:.35; cursor:not-allowed; }
+.income-pagination-info { min-width:150px; text-align:center; font-size:12px; color:var(--text-3); font-weight:600; }
+@media (max-width:560px) { .income-pagination { gap:7px; } .income-pagination-info { min-width:118px; font-size:11px; } }
 .report-dedication-list .income-row { cursor: default; }
 .report-dedication-list .income-row:hover .income-name { color:var(--text); }
 </style>
@@ -3605,6 +3611,18 @@ function json(obj) {
       '<div class="income-amount">' + fmtAmount(amountForCurrentMonth(d), typeof donorCurrency === 'function' ? donorCurrency(d) : (d.currency || 'USD')) + '</div>' +
       '</div>';
   }
+  const RECENT_INCOME_PAGE_SIZE = 12;
+  let recentIncomePage = 1;
+
+  window.changeRecentIncomePage = function(delta){
+    const paidRows = (donors || []).filter(isPaid);
+    const totalPages = Math.max(1, Math.ceil(paidRows.length / RECENT_INCOME_PAGE_SIZE));
+    recentIncomePage = Math.min(totalPages, Math.max(1, recentIncomePage + Number(delta || 0)));
+    renderRebuiltDashboard();
+    const card = document.getElementById('recentIncomeList');
+    if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   function ensureDashboardLayout(){
     const page = document.getElementById('page-dashboard');
     if (!page || page.dataset.rebuiltIncomeDashboard === '1') return;
@@ -3636,6 +3654,11 @@ function json(obj) {
       <div class="card section">
         <div class="card-title income-detail-title"><div>רשימת תרומות אחרונות כולל פירוט</div><div class="card-subtitle">מקור · חד פעמית / הוראת קבע · תאריך תרומה</div></div>
         <div id="recentIncomeList"></div>
+        <div class="income-pagination" id="recentIncomePagination" aria-label="ניווט בין תרומות אחרונות">
+          <button id="recentIncomePrev" type="button" onclick="changeRecentIncomePage(-1)" title="תרומות חדשות יותר" aria-label="תרומות חדשות יותר">&#8594;</button>
+          <div class="income-pagination-info" id="recentIncomePageInfo">עמוד 1 מתוך 1</div>
+          <button id="recentIncomeNext" type="button" onclick="changeRecentIncomePage(1)" title="תרומות ישנות יותר" aria-label="תרומות ישנות יותר">&#8592;</button>
+        </div>
       </div>
       <div class="card section">
         <div class="card-title">פילוח לפי מקור וסוג תרומה</div>
@@ -3658,7 +3681,12 @@ function json(obj) {
     ensureDashboardLayout();
     const now = new Date();
     const active = (donors || []).filter(d => isCurrentMonthDonation(d, now));
-    const recent = (donors || []).filter(isPaid).slice().sort((a,b) => (parseDonationDate(b)?.getTime() || 0) - (parseDonationDate(a)?.getTime() || 0)).slice(0,12);
+    const recentAll = (donors || []).filter(isPaid).slice().sort((a,b) => (parseDonationDate(b)?.getTime() || 0) - (parseDonationDate(a)?.getTime() || 0));
+    const recentTotalPages = Math.max(1, Math.ceil(recentAll.length / RECENT_INCOME_PAGE_SIZE));
+    if (recentIncomePage > recentTotalPages) recentIncomePage = recentTotalPages;
+    if (recentIncomePage < 1) recentIncomePage = 1;
+    const recentStart = (recentIncomePage - 1) * RECENT_INCOME_PAGE_SIZE;
+    const recent = recentAll.slice(recentStart, recentStart + RECENT_INCOME_PAGE_SIZE);
     const recurring = active.filter(d => donationFrequency(d).key === 'recurring');
     const oneTime = active.filter(d => donationFrequency(d).key !== 'recurring');
     const nedarim = (donors || []).filter(d => isPaid(d) && isNedarim(d));
@@ -3682,6 +3710,17 @@ function json(obj) {
     setText('incomeOneTimeTotal', fmtSums(oneTimeSums));
     const list = document.getElementById('recentIncomeList');
     if (list) list.innerHTML = recent.length ? recent.map(donationRow).join('') : '<div class="empty">אין תרומות להצגה</div>';
+
+    const pageInfo = document.getElementById('recentIncomePageInfo');
+    const prevBtn = document.getElementById('recentIncomePrev');
+    const nextBtn = document.getElementById('recentIncomeNext');
+    const pager = document.getElementById('recentIncomePagination');
+    const shownFrom = recentAll.length ? recentStart + 1 : 0;
+    const shownTo = Math.min(recentStart + recent.length, recentAll.length);
+    if (pageInfo) pageInfo.textContent = 'עמוד ' + recentIncomePage + ' מתוך ' + recentTotalPages + ' · ' + shownFrom + '–' + shownTo + ' מתוך ' + recentAll.length;
+    if (prevBtn) prevBtn.disabled = recentIncomePage <= 1;
+    if (nextBtn) nextBtn.disabled = recentIncomePage >= recentTotalPages;
+    if (pager) pager.style.display = recentAll.length > RECENT_INCOME_PAGE_SIZE ? 'flex' : 'none';
   }
   function isNitzivDay(d){
     const txt = [d.category, d.dedicationTypeLabel, d.dedicationType, d.memoryContent, d.deceasedName, d.notes].filter(Boolean).join(' ');
