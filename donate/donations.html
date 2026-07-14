@@ -577,10 +577,15 @@
     };
 
     const PAGE_SIZE = 15;
-    const AUTO_REFRESH_MS = 2 * 60 * 1000;
+    const AUTO_REFRESH_MS = Number((window.NDA_CONFIG && window.NDA_CONFIG.DASHBOARD_REFRESH_MS) || 60000);
+    const AUTO_IMPORT_MS = Number((window.NDA_CONFIG && window.NDA_CONFIG.NEDARIM_IMPORT_MS) || 300000);
+    const DONATIONS_CACHE_KEY = 'nda_public_donations_cache_v3';
+    const LAST_IMPORT_KEY = 'nda_public_last_nedarim_import_v3';
     let allRows = [];
     let refreshTimer = null;
+    let importTimer = null;
     let fetchInFlight = false;
+    let importInFlight = false;
 
     function cleanNum(v) {
       const n = Number(String(v || 0).replace(/[^0-9.\-]/g, ''));
@@ -1368,45 +1373,126 @@
       q('langEn').addEventListener('click', function(){ setLang('en'); });
     }
 
+    function cacheRows(list) {
+      try {
+        localStorage.setItem(DONATIONS_CACHE_KEY, JSON.stringify(Array.isArray(list) ? list : []));
+      } catch (e) {}
+    }
+
+    function restoreCachedRows() {
+      try {
+        const cached = JSON.parse(localStorage.getItem(DONATIONS_CACHE_KEY) || '[]');
+        if (!Array.isArray(cached) || !cached.length) return false;
+        allRows = normalizeRows(cached);
+        render();
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    async function responseJson(res, label) {
+      const text = await res.text();
+      let data;
+      try { data = JSON.parse(text); }
+      catch (e) { throw new Error((label || 'השרת') + ' לא החזיר JSON תקין'); }
+      if (!res.ok || (data && data.success === false)) {
+        throw new Error((data && (data.message || data.error)) || ((label || 'הבקשה') + ' נכשלה'));
+      }
+      return data || {};
+    }
+
     async function fetchRows(options) {
-      if (fetchInFlight) return;
+      if (fetchInFlight) return null;
       const opts = options || {};
       fetchInFlight = true;
-      let list = [];
       try {
         const res = await fetch(CONFIG.APPS_SCRIPT_URL + '?action=get&t=' + Date.now(), { cache: 'no-store' });
-        if (res.ok) {
-          const data = await res.json();
-          if (data && Array.isArray(data.donors)) list = data.donors;
-        }
-      } catch (e) {}
-      // No browser fallback: every browser displays the shared Google Sheets data.
+        const data = await responseJson(res, 'Google Sheets');
+        const list = data && Array.isArray(data.donors) ? data.donors : [];
+        cacheRows(list);
+        allRows = normalizeRows(list);
+        if (!opts.preservePage) state.page = 1;
+        render();
+        return list;
+      } catch (e) {
+        console.error('טעינת התרומות מ-Google Sheets נכשלה', e);
+        // הנתונים האחרונים שכבר הוצגו נשארים על המסך.
+        return null;
+      } finally {
+        fetchInFlight = false;
+      }
+    }
 
+    async function saveImportedRows(list) {
+      const res = await fetch(CONFIG.APPS_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'sync', donors: Array.isArray(list) ? list : [] })
+      });
+      return responseJson(res, 'שמירה ב-Google Sheets');
+    }
 
-      allRows = normalizeRows(list);
-      if (!opts.preservePage) state.page = 1;
-      render();
-      fetchInFlight = false;
+    async function importNedarimAutomatically(options) {
+      if (importInFlight) return null;
+      const opts = options || {};
+      const lastImport = Number(localStorage.getItem(LAST_IMPORT_KEY) || 0);
+      if (!opts.force && lastImport && Date.now() - lastImport < Math.min(AUTO_IMPORT_MS, 120000)) return null;
+
+      importInFlight = true;
+      try {
+        const qs = new URLSearchParams({
+          category: 'נציבי דעת אהרן',
+          full: '1',
+          lastId: '0',
+          maxId: '500',
+          pages: '20',
+          includeKeva: '1'
+        });
+        const res = await fetch('/.netlify/functions/nedarim-import?' + qs.toString(), { cache: 'no-store' });
+        const data = await responseJson(res, 'נדרים פלוס');
+        const imported = data && Array.isArray(data.donors) ? data.donors : [];
+        if (imported.length) await saveImportedRows(imported);
+        localStorage.setItem(LAST_IMPORT_KEY, String(Date.now()));
+        await fetchRows({ preservePage: true });
+        return data;
+      } catch (e) {
+        console.error('ייבוא אוטומטי מנדרים פלוס נכשל', e);
+        // כשל זמני בייבוא אינו מוחק את הנתונים שכבר שמורים ב-Google Sheets.
+        return null;
+      } finally {
+        importInFlight = false;
+      }
     }
 
     function scheduleAutoRefresh() {
       if (refreshTimer) window.clearInterval(refreshTimer);
+      if (importTimer) window.clearInterval(importTimer);
+
       refreshTimer = window.setInterval(function(){
-        fetchRows({ preservePage: true });
+        if (!document.hidden) fetchRows({ preservePage: true });
       }, AUTO_REFRESH_MS);
+
+      importTimer = window.setInterval(function(){
+        if (!document.hidden) importNedarimAutomatically();
+      }, AUTO_IMPORT_MS);
     }
 
     function bindAutoRefreshEvents() {
       document.addEventListener('visibilitychange', function(){
-        if (!document.hidden) fetchRows({ preservePage: true });
+        if (!document.hidden) {
+          fetchRows({ preservePage: true });
+          importNedarimAutomatically();
+        }
       });
 
       window.addEventListener('focus', function(){
         fetchRows({ preservePage: true });
+        importNedarimAutomatically();
       });
     }
 
-    function init() {
+    async function init() {
       bindInputs();
       bindAutoRefreshEvents();
       scheduleAutoRefresh();
@@ -1415,7 +1501,15 @@
       const stored = localStorage.getItem('dedication_language');
       const initial = urlLang === 'en' || urlLang === 'he' ? urlLang : (stored === 'en' ? 'en' : 'he');
       setLang(initial);
-      fetchRows();
+
+      // מציג מיד את העותק האחרון שנשמר בדפדפן, אך Google Sheets נשאר מקור האמת.
+      restoreCachedRows();
+
+      // קודם טוענים את הנתונים שכבר קיימים בגיליון, כדי שהעמוד לא ייפתח על 0.
+      await fetchRows();
+
+      // אחר כך מייבאים מנדרים ברקע, שומרים בגיליון ומרעננים את התצוגה.
+      importNedarimAutomatically({ force: true });
     }
 
     document.addEventListener('DOMContentLoaded', init);
