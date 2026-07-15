@@ -1037,8 +1037,11 @@
     }
 
     function fmtNumber(n) {
-      return (Number(n) || 0).toLocaleString('en-US');
-    }
+  return (Number(n) || 0).toLocaleString('he-IL', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  });
+}
 
     function fmtMoneyByCurrency(sum) {
       const s = sum || { ILS: 0, USD: 0 };
