@@ -1606,8 +1606,12 @@
     if (isNaN(d)) return Infinity;
     return Math.floor((Date.now() - d.getTime()) / 86400000);
   }
-  function fmtMoney(n) { return Number(n || 0).toLocaleString('en-US'); }
-  // Currency-aware display helpers: Nedarim Plus donations are ILS, Banquest donations are USD.
+function fmtMoney(n) {
+  return Number(n || 0).toLocaleString('he-IL', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  });
+}  // Currency-aware display helpers: Nedarim Plus donations are ILS, Banquest donations are USD.
   function donorCurrency(d) {
     d = d || {};
     const raw = String(d.currency || d.paymentCurrency || d.currencyCode || d.currency_code || '').trim().toUpperCase();
@@ -3665,7 +3669,6 @@ function json(obj) {
       <div class="income-hero-main">
         <div class="income-hero-label">סה״כ תרומות לחודש זה</div>
         <div class="income-hero-amount" id="incomeHeroTotal">$0</div>
-        <div class="income-hero-sub">סכום כולל אתר + נדרים פלוס · לפי תאריך התרומה, לא לפי תאריך ההנצחה</div>
         <div class="income-month-meta">
           <span class="income-month-pill" id="incomeHeroCount">0 תרומות</span>
           <span class="income-month-pill" id="incomeHeroRecurring">0 הוראות קבע פעילות</span>
